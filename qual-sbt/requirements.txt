@@ -1,0 +1,4 @@
+dm_control==1.0.22
+matplotlib==3.10.3
+numpy==2.2.6
+pandas==2.3.0

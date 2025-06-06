@@ -1,0 +1,54 @@
+<mujoco model="sbtnew">
+    <include file="./common/skybox.xml"/>
+    <include file="./common/visual.xml"/>
+    <include file="./common/materials.xml"/>
+
+    <compiler autolimits="true"/>
+
+    <option gravity="0 0 -9.81" timestep="0.01" />
+    <option integrator="RK4"/>
+    <option cone="Elliptic"/>
+    <option solver="pgs"/>
+    
+    
+
+    <default>
+        <default class="fast_spoke">
+            <geom type="capsule" size="0.01" fromto="0.07 0 0  0.07 0 0.254" mass="0.095405"/>
+        </default>
+        <default class="slow_spoke">
+            <geom type="capsule" size="0.01" fromto="-0.07 0 0  -0.07 0 0.254" mass="0.095405"/>
+        </default>
+        <default class="fast_spoke_addition">
+            <geom type='box' pos='0.07 0 0.127' size="0.005 0.07 0.07" mass="0.095405"/>
+        </default>
+        <default class="slow_spoke_addition">
+            <geom type='box' pos='0.93 0 0.13' size="0.005 0.07 0.07" mass="0.095405"/>
+        </default>
+        <default class="belt">
+            <geom type="box" size="0.05 10 0.1" material="grid" friction="4 0 0" axisangle="1 0 0 0" mass="3"/>
+            <joint type="slide" pos="0 -10 0" axis="0 1 0" range="-0.01 0.01"/>
+        </default>
+    </default>
+
+    <worldbody>
+        <body childclass="belt">
+            <geom name="slow_belt" pos="-0.051 0 0" rgba="1 0 0 1"/>
+            <joint name="slow_belt_conveyor"/>
+            <site name="slow_belt_force_site" type="box" pos="-0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" />
+
+        </body>
+        <body childclass="belt">
+            <geom name="fast_belt" pos=".051 0 0.0049" rgba="0 0 1 1"/>
+            <joint name="fast_belt_conveyor"/>
+            <site name="fast_belt_force_site" type="box" pos="0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" />
+        </body>
+
+    </worldbody>
+
+    <sensor>
+        <force name="slow_belt_force_sensor" site="slow_belt_force_site"/>
+        <force name="fast_belt_force_sensor" site="fast_belt_force_site"/>
+    </sensor>
+
+</mujoco>
