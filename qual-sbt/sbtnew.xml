@@ -9,25 +9,28 @@
     <option integrator="RK4"/>
     <option cone="Elliptic"/>
     <option solver="pgs"/>
-    
-    
+    <option iterations="500"/>
 
     <default>
         <default class="fast_spoke">
-            <geom type="capsule" size="0.01" fromto="0.07 0 0  0.07 0 0.254" mass="0.095405"/>
+            <geom type="capsule" size="0.01" fromto="0 0 0  0 0 0.254" mass="0.095405"/>
         </default>
         <default class="slow_spoke">
-            <geom type="capsule" size="0.01" fromto="-0.07 0 0  -0.07 0 0.254" mass="0.095405"/>
+            <geom type="capsule" size="0.01" fromto="0 0 0  0 0 0.254" mass="0.095405"/>
         </default>
         <default class="fast_spoke_addition">
-            <geom type='box' pos='0.07 0 0.127' size="0.005 0.07 0.07" mass="0.095405"/>
+            <geom type='box' pos='0 0 0.13' size="0.005 0.07 0.07" mass="0.095405"/>
         </default>
         <default class="slow_spoke_addition">
-            <geom type='box' pos='0.93 0 0.13' size="0.005 0.07 0.07" mass="0.095405"/>
+            <geom type='box' pos='0 0 0.13' size="0.005 0.07 0.07" mass="0.095405"/>
         </default>
         <default class="belt">
-            <geom type="box" size="0.05 10 0.1" material="grid" friction="4 0 0" axisangle="1 0 0 0" mass="3"/>
-            <joint type="slide" pos="0 -10 0" axis="0 1 0" range="-0.01 0.01"/>
+            <geom type="box" size="0.05 10 0.1" material="grid" friction="1.0 0.1 0.1" axisangle="1 0 0 0" mass="3"/>
+            <joint type="slide" pos="0 -10 0" axis="0 1 0" range="-0.001 0.001"/>
+        </default>
+        <default class="rubber_pad">
+            <geom type="sphere" size="0.015" pos="0 0 0.254" rgba="0.1 0.1 0.1 1" friction="1 0.1 0.1" solimp="0.8 0.8 0.01" solref="0.02 1"/>
+            <joint type="slide" axis="0 0 1" pos="0 0 0.254" range="0 0.015" stiffness="1000" damping="10" />
         </default>
     </default>
 
