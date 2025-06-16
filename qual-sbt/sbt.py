@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import math
 
+from datetime import datetime
 from dm_control import viewer, mujoco
 from dm_control.rl.control import Environment
 from dm_control.suite.base import Task
@@ -67,6 +68,46 @@ def loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment):
         starting_belt_diff+=bd_increment
     return average_velocity_list, rotation_count_list
 
+def robust_plotting(average_velocity_list, bdiffarray):
+    
+    # -- Create Dataframe for CSV export of simulation data
+    sbt_dataset = pd.DataFrame({'BDiffs': bdiffarray[:], 'AvgVelo':average_velocity_list[:]})
+    sbt_dataset.to_csv('data/sbt_data.csv', index=False)
+
+    # -- Convert CSV of experimental results into dataframe
+    experimental_sbt_dataset = pd.read_csv('data/digitized_experimental_sbt_data.csv')
+    exp_bdiffarray = experimental_sbt_dataset['exp_bdiff']
+    exp_average_velocity = experimental_sbt_dataset['exp_avgvelo']
+    print(exp_bdiffarray, exp_average_velocity)
+
+    # -- Plot Settings
+    plt.scatter(bdiffarray, average_velocity_list, 
+                s=10, 
+                color='blue'
+                )
+    plt.scatter(exp_bdiffarray, exp_average_velocity, 
+                s=10, 
+                color='red'
+                )
+    plt.title('Belt Speed Difference (m/s) vs. Average Steady Velocity (m/s)')
+    plt.ylabel('Average Steady Velocity (m/s)', 
+               size=15
+               )
+    plt.xlabel('Belt Speed Difference (m/s)', 
+               size=15
+               )
+
+    # -- Show Results
+    # plt.show()
+
+    # -- Save Results
+    timestamp = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
+    filename = f'figures/figure_{timestamp}.svg'
+    plt.savefig(filename,
+                format='svg'
+                )
+    print(f'Plot saved as {filename}')
+
 if __name__ == '__main__':
     # -- MuJoCo Setup
     model = sbt_model_gen.create_sbt_model()
@@ -86,17 +127,8 @@ if __name__ == '__main__':
 
     # -- Test Loop Simulation
     average_velocity_list, rotation_count_list = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-    bdiffarry = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list))
+    bdiffarray = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list))
+    robust_plotting(average_velocity_list, bdiffarray)
 
-    # -- Create Dataframe for CSV export 
-    sbt_dataset = pd.DataFrame({'BDiffs': bdiffarry[:], 'AvgVelo':average_velocity_list[:]})
-    sbt_dataset.to_csv('sbt_data.csv', index=False)
-
-    # -- Plot Results
-    plt.scatter(bdiffarry, average_velocity_list, s=10, color='blue')
-    plt.title('Belt Speed Difference (m/s) vs. Average Steady Velocity (m/s)')
-    plt.ylabel('Average Steady Velocity (m/s)')
-    plt.xlabel('Belt Speed Difference (m/s)')
-    plt.show()
-
+    # -- Test Rendering and Model
     # viewer.launch(sbt_env)
