@@ -78,7 +78,6 @@ def robust_plotting(average_velocity_list, bdiffarray):
     experimental_sbt_dataset = pd.read_csv('data/digitized_experimental_sbt_data.csv')
     exp_bdiffarray = experimental_sbt_dataset['exp_bdiff']
     exp_average_velocity = experimental_sbt_dataset['exp_avgvelo']
-    print(exp_bdiffarray, exp_average_velocity)
 
     # -- Plot Settings
     plt.scatter(bdiffarray, average_velocity_list, 
@@ -109,17 +108,25 @@ def robust_plotting(average_velocity_list, bdiffarray):
     print(f'Plot saved as {filename}')
 
 if __name__ == '__main__':
+    # -- Model Parameters for Results
+    sbt_fast_spoke_rubber = True
+    sbt_slow_spoke_rubber = False
+
     # -- MuJoCo Setup
-    model = sbt_model_gen.create_sbt_model()
+    model = sbt_model_gen.create_sbt_model(sbt_fast_spoke_rubber, 
+                                           sbt_slow_spoke_rubber
+                                           )
     sbt_physics = mujoco.Physics.from_xml_string(model.to_xml_string())
     sbt_task = SplitBeltTreadmillTask()
-    sbt_env = Environment(physics=sbt_physics, task=sbt_task)
+    sbt_env = Environment(physics=sbt_physics, 
+                          task=sbt_task
+                          )
     action_spec = sbt_env.action_spec()
 
     # -- Simulation Parameters
     timesteps = 2000
     starting_belt_diff = 0.15
-    belt_diff = 1.1 #1.4
+    belt_diff = 1.1 
     bd_increment = 0.005
 
     # -- Test single simulation

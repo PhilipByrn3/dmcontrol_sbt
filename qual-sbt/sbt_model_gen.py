@@ -1,6 +1,6 @@
 from dm_control import mjcf
 
-def create_sbt_model():
+def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
     sbt_model = mjcf.from_path('sbtnew.xml')
     world = sbt_model.worldbody
 
@@ -25,15 +25,17 @@ def create_sbt_model():
         slow_spoke_body.add('geom', rgba="0.7 0 0 1")
         slow_spoke_addition = slow_spoke_bodies.add('body', childclass="slow_spoke_addition", axisangle=[1,0,0,genangle])
         slow_spoke_addition.add('geom', rgba="0.7 0.3 0.3 1")
-        # slow_spoke_rubber = slow_spoke_body.add('body', childclass="rubber_pad")
-        # slow_spoke_rubber.add('geom')
+        if sbt_slow_spoke_rubber == True:
+            slow_spoke_rubber = slow_spoke_body.add('body', childclass="rubber_pad")
+            slow_spoke_rubber.add('geom')
 
         fast_spoke_body = fast_spoke_bodies.add('body', childclass="fast_spoke", axisangle=[1,0,0,genangle])
         fast_spoke_body.add('geom', rgba="0 0 0.7 1")
         fast_spoke_addition = fast_spoke_bodies.add('body', childclass="fast_spoke_addition", axisangle=[1, 0, 0, genangle])
         fast_spoke_addition.add('geom', rgba="0.3 0.3 0.7 1")
-        fast_spoke_rubber = fast_spoke_body.add('body', childclass="rubber_pad")
-        fast_spoke_rubber.add('geom')
+        if sbt_fast_spoke_rubber == True:
+            fast_spoke_rubber = fast_spoke_body.add('body', childclass="rubber_pad")
+            fast_spoke_rubber.add('geom')
 
 
         genangle+=40

@@ -8,8 +8,8 @@
     <option gravity="0 0 -9.81" timestep="0.01" />
     <option integrator="RK4"/>
     <option cone="Elliptic"/>
-    <option solver="pgs"/>
-    <option iterations="500"/>
+    <option solver="PGS"/>
+    <option iterations="50"/>
 
     <default>
         <default class="fast_spoke">
