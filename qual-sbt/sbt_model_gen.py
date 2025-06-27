@@ -9,6 +9,14 @@ def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
     genangle = 40
     axle_len = 0.038
 
+    slow_belt = world.add('body', childclass='belt', name='slow_belt')
+    slow_belt.add('geom', name='slow_belt_geom', pos=[-0.051, 0, 0], rgba=[1, 0, 0, 1])
+    slow_belt.add('joint', name="slow_belt_conveyor")
+
+    fast_belt = world.add('body', childclass='belt', name='fast_belt')
+    fast_belt.add('geom', name='fast_belt_geom', pos=[0.051, 0, 0], rgba=[0, 0, 1, 1])
+    fast_belt.add('joint', name="fast_belt_conveyor")
+
     axle_body = world.add('body', name='rimlesswheel', pos='0 0 0.38')
     axle_body.add('geom', name="axle", type="cylinder", size=[0.01, axle_len], rgba="0.7 0 0.7 1", euler="0 90 0", mass="0.095405")
     
@@ -36,12 +44,9 @@ def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
             fast_spoke_rubber = fast_spoke_body.add('body', childclass="rubber_pad")
             fast_spoke_rubber.add('geom')
 
-
         genangle+=40
 
     sensor = sbt_model.sensor
-    # sensor.add('touch', name='slow_touch', site='slow_belt_force_site')
-    # sensor.add('touch', name='fast_touch', site='fast_belt_force_site')
     sensor.add('framepos', name='axlepos', objtype="xbody", objname="rimlesswheel")
     
     return sbt_model
