@@ -82,11 +82,13 @@ def robust_plotting(average_velocity_list, bdiffarray):
     # -- Plot Settings
     plt.scatter(bdiffarray, average_velocity_list, 
                 s=10, 
-                color='blue'
+                color='blue',
+                label='MuJoCo Simulation'
                 )
     plt.scatter(exp_bdiffarray, exp_average_velocity, 
                 s=10, 
-                color='red'
+                color='red',
+                label='Experimental Results'
                 )
     plt.title('Belt Speed Difference (m/s) vs. Average Steady Velocity (m/s)')
     plt.ylabel('Average Steady Velocity (m/s)', 
@@ -95,7 +97,7 @@ def robust_plotting(average_velocity_list, bdiffarray):
     plt.xlabel('Belt Speed Difference (m/s)', 
                size=15
                )
-
+    plt.legend()
     # -- Show Results
     # plt.show()
 
@@ -105,7 +107,7 @@ def robust_plotting(average_velocity_list, bdiffarray):
     plt.savefig(filename,
                 format='svg'
                 )
-    print(f'Plot saved as {filename}')
+    print(f'Plot saved to {filename}')
 
 if __name__ == '__main__':
     # -- Model Parameters for Results

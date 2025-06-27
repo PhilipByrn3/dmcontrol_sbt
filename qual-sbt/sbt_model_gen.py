@@ -7,7 +7,6 @@ def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
     twoalpha=15.5
     twobeta=4.5
     genangle = 40
-
     axle_len = 0.038
 
     axle_body = world.add('body', name='rimlesswheel', pos='0 0 0.38')
@@ -41,8 +40,8 @@ def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
         genangle+=40
 
     sensor = sbt_model.sensor
-    sensor.add('touch', name='slow_touch', site='slow_belt_force_site')
-    sensor.add('touch', name='fast_touch', site='fast_belt_force_site')
+    # sensor.add('touch', name='slow_touch', site='slow_belt_force_site')
+    # sensor.add('touch', name='fast_touch', site='fast_belt_force_site')
     sensor.add('framepos', name='axlepos', objtype="xbody", objname="rimlesswheel")
     
     return sbt_model

@@ -38,20 +38,20 @@
         <body childclass="belt">
             <geom name="slow_belt" pos="-0.051 0 0" rgba="1 0 0 1"/>
             <joint name="slow_belt_conveyor"/>
-            <site name="slow_belt_force_site" type="box" pos="-0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" />
+            <!-- <site name="slow_belt_force_site" type="box" pos="-0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" /> -->
 
         </body>
         <body childclass="belt">
             <geom name="fast_belt" pos=".051 0 0.00" rgba="0 0 1 1"/>
             <joint name="fast_belt_conveyor"/>
-            <site name="fast_belt_force_site" type="box" pos="0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" />
+            <!-- <site name="fast_belt_force_site" type="box" pos="0.051 0 0.104" size="0.05 5 0.0005" rgba="0.7 .7 .7 0.15" /> -->
         </body>
 
     </worldbody>
 
-    <sensor>
+    <!-- <sensor>
         <force name="slow_belt_force_sensor" site="slow_belt_force_site"/>
         <force name="fast_belt_force_sensor" site="fast_belt_force_site"/>
-    </sensor>
+    </sensor> -->
 
 </mujoco>
