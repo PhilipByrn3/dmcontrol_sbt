@@ -1,6 +1,6 @@
 from dm_control import mjcf
 
-def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
+def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_belt_pos):
     sbt_model = mjcf.from_path('sbtnew.xml')
     world = sbt_model.worldbody
 
@@ -14,7 +14,7 @@ def create_sbt_model(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber):
     slow_belt.add('joint', name="slow_belt_conveyor")
 
     fast_belt = world.add('body', childclass='belt', name='fast_belt')
-    fast_belt.add('geom', name='fast_belt_geom', pos=[0.051, 0, 0], rgba=[0, 0, 1, 1])
+    fast_belt.add('geom', name='fast_belt_geom', pos=fast_belt_pos, rgba=[0, 0, 1, 1])
     fast_belt.add('joint', name="fast_belt_conveyor")
 
     axle_body = world.add('body', name='rimlesswheel', pos='0 0 0.38')

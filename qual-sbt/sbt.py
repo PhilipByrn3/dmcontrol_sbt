@@ -68,16 +68,20 @@ def loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment):
         starting_belt_diff+=bd_increment
     return average_velocity_list, rotation_count_list
 
+def get_experimental_data():
+    # -- Convert CSV of experimental results into dataframe
+    experimental_sbt_dataset = pd.read_csv('data/digitized_experimental_sbt_data.csv')
+    exp_bdiffarray = experimental_sbt_dataset['exp_bdiff']
+    exp_average_velocity = experimental_sbt_dataset['exp_avgvelo']
+    return exp_bdiffarray, exp_average_velocity
+
 def robust_plotting(average_velocity_list, bdiffarray):
     
     # -- Create Dataframe for CSV export of simulation data
     sbt_dataset = pd.DataFrame({'BDiffs': bdiffarray[:], 'AvgVelo':average_velocity_list[:]})
     sbt_dataset.to_csv('data/sbt_data.csv', index=False)
 
-    # -- Convert CSV of experimental results into dataframe
-    experimental_sbt_dataset = pd.read_csv('data/digitized_experimental_sbt_data.csv')
-    exp_bdiffarray = experimental_sbt_dataset['exp_bdiff']
-    exp_average_velocity = experimental_sbt_dataset['exp_avgvelo']
+    exp_bdiffarray, exp_average_velocity = get_experimental_data()
 
     # -- Plot Settings
     plt.scatter(bdiffarray, average_velocity_list, 
@@ -109,14 +113,11 @@ def robust_plotting(average_velocity_list, bdiffarray):
                 )
     print(f'Plot saved to {filename}')
 
-if __name__ == '__main__':
-    # -- Model Parameters for Results
-    sbt_fast_spoke_rubber = True
-    sbt_slow_spoke_rubber = False
-
+def instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_belt_pos):
     # -- MuJoCo Setup
     model = sbt_model_gen.create_sbt_model(sbt_fast_spoke_rubber, 
-                                           sbt_slow_spoke_rubber
+                                           sbt_slow_spoke_rubber,
+                                           fast_belt_pos
                                            )
     sbt_physics = mujoco.Physics.from_xml_string(model.to_xml_string())
     sbt_task = SplitBeltTreadmillTask()
@@ -124,6 +125,106 @@ if __name__ == '__main__':
                           task=sbt_task
                           )
     action_spec = sbt_env.action_spec()
+
+    return model, sbt_physics, sbt_task, sbt_env, action_spec
+
+if __name__ == '__main__':
+
+    mass_simulation = True
+
+    if mass_simulation == True:
+        timesteps = 2000
+        starting_belt_diff = 0.15
+        belt_diff = 1.1 
+        bd_increment = 0.005
+
+        # -- Fig 1
+        sbt_fast_spoke_rubber = True
+        sbt_slow_spoke_rubber = False
+        fast_belt_pos = [0.051, 0, 0]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list1, rotation_count_list1 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray1 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list1))
+
+        # -- Fig 2
+        sbt_fast_spoke_rubber = True
+        sbt_slow_spoke_rubber = False
+        fast_belt_pos = [0.051, 0, 0.0049]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list2, rotation_count_list2 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray2 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list2))
+
+        # -- Fig 3
+        sbt_fast_spoke_rubber = True
+        sbt_slow_spoke_rubber = True
+        fast_belt_pos = [0.051, 0, 0]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list3, rotation_count_list3 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray3 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list3))
+
+        # -- Fig 4
+        sbt_fast_spoke_rubber = True
+        sbt_slow_spoke_rubber = True
+        fast_belt_pos = [0.051, 0, 0.0049]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list4, rotation_count_list4 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray4 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list4))
+
+        # -- Fig 5
+        sbt_fast_spoke_rubber = False
+        sbt_slow_spoke_rubber = False
+        fast_belt_pos = [0.051, 0, 0.0049]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list5, rotation_count_list5 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray5 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list5))
+
+        # -- Fig 6
+        sbt_fast_spoke_rubber = False
+        sbt_slow_spoke_rubber = False
+        fast_belt_pos = [0.051, 0, 0]
+        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                                                     sbt_slow_spoke_rubber, 
+                                                                                     fast_belt_pos)
+        average_velocity_list6, rotation_count_list6 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        bdiffarray6 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list6))
+
+        # -- Plot Results
+        exp_bdiffarray, exp_average_velocity = get_experimental_data()
+        fig, ax = plt.subplots(nrows=2, ncols=3)
+
+        ax[0,0].scatter(bdiffarray1, average_velocity_list1, color='blue', s=10)
+        ax[0,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+
+        ax[0,1].scatter(bdiffarray2, average_velocity_list2, color='blue', s=10)
+        ax[0,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+
+        ax[0,2].scatter(bdiffarray3, average_velocity_list3, color='blue', s=10)
+        ax[0,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+
+        ax[1,0].scatter(bdiffarray4, average_velocity_list4, color='blue', s=10)
+        ax[1,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        
+        ax[1,1].scatter(bdiffarray5, average_velocity_list5, color='blue', s=10)
+        ax[1,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+
+        ax[1,2].scatter(bdiffarray6, average_velocity_list6, color='blue', s=10)
+        ax[1,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        plt.show()
+
+    # -- Model Parameters for Results
+    
+
+    model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_belt_pos)
 
     # -- Simulation Parameters
     timesteps = 2000
@@ -135,9 +236,9 @@ if __name__ == '__main__':
     # simulate_treadmill(timesteps, belt_diff)
 
     # -- Test Loop Simulation
-    average_velocity_list, rotation_count_list = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-    bdiffarray = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list))
-    robust_plotting(average_velocity_list, bdiffarray)
+    # average_velocity_list, rotation_count_list = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+    # bdiffarray = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list))
+    # robust_plotting(average_velocity_list, bdiffarray)
 
     # -- Test Rendering and Model
     # viewer.launch(sbt_env)
