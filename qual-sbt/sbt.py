@@ -94,7 +94,7 @@ def robust_plotting(average_velocity_list, bdiffarray):
                 color='red',
                 label='Experimental Results'
                 )
-    plt.title('Belt Speed Difference (m/s) vs. Average Steady Velocity (m/s)')
+    plt.set_title('Belt Speed Difference (m/s) vs. Average Steady Velocity (m/s)')
     plt.ylabel('Average Steady Velocity (m/s)', 
                size=15
                )
@@ -130,7 +130,7 @@ def instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_b
 
 if __name__ == '__main__':
 
-    mass_simulation = True
+    mass_simulation = False
 
     if mass_simulation == True:
         timesteps = 2000
@@ -200,25 +200,56 @@ if __name__ == '__main__':
 
         # -- Plot Results
         exp_bdiffarray, exp_average_velocity = get_experimental_data()
-        fig, ax = plt.subplots(nrows=2, ncols=3)
+        fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(9,6), constrained_layout=True)
 
-        ax[0,0].scatter(bdiffarray1, average_velocity_list1, color='blue', s=10)
-        ax[0,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        # Existing scatter plots and titles
+        ax[0,0].scatter(bdiffarray1, average_velocity_list1, color='blue', s=10, label='Simulation Data')
+        ax[0,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[0,0].set_title('(a)', x=0.5, y=0.98)
+        ax[0,0].set_ylabel('Average Steady Velocity (m/s)')
+        ax[0,0].legend(loc='lower center')
 
-        ax[0,1].scatter(bdiffarray2, average_velocity_list2, color='blue', s=10)
-        ax[0,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        ax[0,1].scatter(bdiffarray2, average_velocity_list2, color='blue', s=10, label='Simulation Data')
+        ax[0,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[0,1].set_title('(b)', x=0.5, y=0.98)
+        ax[0,1].set_xlabel('Belt Speed Difference (m/s)')
 
-        ax[0,2].scatter(bdiffarray3, average_velocity_list3, color='blue', s=10)
-        ax[0,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        ax[0,2].scatter(bdiffarray3, average_velocity_list3, color='blue', s=10, label='Simulation Data')
+        ax[0,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[0,2].set_title('(c)', x=0.5, y=0.98)
 
-        ax[1,0].scatter(bdiffarray4, average_velocity_list4, color='blue', s=10)
-        ax[1,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
-        
-        ax[1,1].scatter(bdiffarray5, average_velocity_list5, color='blue', s=10)
-        ax[1,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        ax[1,0].scatter(bdiffarray4, average_velocity_list4, color='blue', s=10, label='Simulation Data')
+        ax[1,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[1,0].set_title('(d)', x=0.5, y=0.98)
+        ax[1,0].set_ylabel('Average Steady Velocity (m/s)')
 
-        ax[1,2].scatter(bdiffarray6, average_velocity_list6, color='blue', s=10)
-        ax[1,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10)
+        ax[1,1].scatter(bdiffarray5, average_velocity_list5, color='blue', s=10, label='Simulation Data')
+        ax[1,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[1,1].set_title('(e)', x=0.5, y=0.98)
+        ax[1,1].set_xlabel('Belt Speed Difference (m/s)')
+
+        ax[1,2].scatter(bdiffarray6, average_velocity_list6, color='blue', s=10, label='Simulation Data')
+        ax[1,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        ax[1,2].set_title('(f)', x=0.5, y=0.98)
+
+        for row in ax:
+            for a in row:
+                # only keep left & bottom spine
+                a.spines['top'].set_visible(False)
+                a.spines['right'].set_visible(False)
+
+                # ensure ticks only on bottom & left
+                a.xaxis.set_ticks_position('bottom')
+                a.yaxis.set_ticks_position('left')
+
+                # same y-range
+                a.set_ylim(0, 0.4)
+
+
+
+        # example of one panel needing a different y‐limit
+        ax[0,1].set_ylim(-0.4, 0.22)
+
         plt.show()
 
     # -- Model Parameters for Results
@@ -241,4 +272,4 @@ if __name__ == '__main__':
     # robust_plotting(average_velocity_list, bdiffarray)
 
     # -- Test Rendering and Model
-    # viewer.launch(sbt_env)
+    viewer.launch(sbt_env)
