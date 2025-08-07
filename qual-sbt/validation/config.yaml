@@ -1,0 +1,14 @@
+---
+# Settings for belt speed
+slow_belt_speed: 0
+belt_speed_difference:
+  - 1
+
+# Wheel Parameters
+axle_length: 0.038
+slow_side: -1
+fast_side: 1
+twoalpha: 15.5
+twobeta: 4.5
+relative_spoke_angle: 40
+component_mass: 0.095405
