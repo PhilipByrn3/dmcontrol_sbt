@@ -3,6 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
+from scipy import stats
 
 from datetime import datetime
 from dm_control import viewer, mujoco
@@ -31,7 +32,7 @@ class SplitBeltTreadmillTask(Task):
     def before_step(self, action, physics):
         return None
 
-def simulate_treadmill(timesteps, belt_diff):
+def simulate_treadmill(timesteps, belt_diff,model, sbt_physics, sbt_task, sbt_env, action_spec):
     sbt_env.reset()
     i=0
     # -- Set slow belt speed to 0 and fast belt speed to belt_diff as sbt_env resets
@@ -56,13 +57,13 @@ def simulate_treadmill(timesteps, belt_diff):
         i+=1
     # -- Calculate average velocity of wheel by dividing final measured distance over final measured time
     avg_wheel_velocity = wheel_position_list[-1]/time_list[-1]
-    print('Bdiff: ', round(belt_diff, 5), '\n        -> Rotation count:', round(rotation_count[0], 4))
+    # print('Bdiff: ', round(belt_diff, 5), '\n        -> Rotation count:', round(rotation_count[0], 4))
     return avg_wheel_velocity, rotation_count 
 
-def loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment):
+def loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment, model, sbt_physics, sbt_task, sbt_env, action_spec):
     average_velocity_list, rotation_count_list = [], []
     while starting_belt_diff <= belt_diff:
-        wheel_velocity, rotation_count = simulate_treadmill(timesteps, starting_belt_diff)
+        wheel_velocity, rotation_count = simulate_treadmill(timesteps, starting_belt_diff, model, sbt_physics, sbt_task, sbt_env, action_spec)
         average_velocity_list.append(wheel_velocity)
         rotation_count_list.append(rotation_count)
         starting_belt_diff+=bd_increment
@@ -128,140 +129,240 @@ def instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_b
 
     return model, sbt_physics, sbt_task, sbt_env, action_spec
 
+def mass_simulation(timesteps:int,
+                    starting_belt_diff:int,
+                    belt_diff:int,
+                    bd_increment:int,
+                    sbt_fast_spoke_rubber:bool,
+                    sbt_slow_spoke_rubber:bool,
+                    fast_belt_pos:list):
+    model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+                                                            sbt_slow_spoke_rubber,
+                                                            fast_belt_pos)
+    average_velocity_list, rotation_count_list = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment, model, sbt_physics, sbt_task, sbt_env, action_spec)
+    return average_velocity_list
+
+def get_stats(exp, sim):
+    exp = np.asarray(exp)
+    sim = np.asarray(sim)
+    rs_stat, rs_pval = stats.ranksums(exp,sim)
+    tt_stat, tt_pval = stats.ttest_ind(exp,sim)
+    print(rs_stat, rs_pval)
+    print(tt_stat, tt_pval)
+    print('\n')
+
 if __name__ == '__main__':
 
-    mass_simulation = False
+    mass_simulation_sw = True
 
-    if mass_simulation == True:
+    if mass_simulation_sw:
         timesteps = 2000
         starting_belt_diff = 0.15
         belt_diff = 1.1 
-        bd_increment = 0.005
-
-        # -- Fig 1
-        sbt_fast_spoke_rubber = True
-        sbt_slow_spoke_rubber = False
-        fast_belt_pos = [0.051, 0, 0]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list1, rotation_count_list1 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray1 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list1))
-
-        # -- Fig 2
-        sbt_fast_spoke_rubber = True
-        sbt_slow_spoke_rubber = False
-        fast_belt_pos = [0.051, 0, 0.0049]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list2, rotation_count_list2 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray2 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list2))
-
-        # -- Fig 3
-        sbt_fast_spoke_rubber = True
-        sbt_slow_spoke_rubber = True
-        fast_belt_pos = [0.051, 0, 0]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list3, rotation_count_list3 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray3 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list3))
-
-        # -- Fig 4
-        sbt_fast_spoke_rubber = True
-        sbt_slow_spoke_rubber = True
-        fast_belt_pos = [0.051, 0, 0.0049]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list4, rotation_count_list4 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray4 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list4))
-
-        # -- Fig 5
-        sbt_fast_spoke_rubber = False
-        sbt_slow_spoke_rubber = False
-        fast_belt_pos = [0.051, 0, 0.0049]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list5, rotation_count_list5 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray5 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list5))
-
-        # -- Fig 6
-        sbt_fast_spoke_rubber = False
-        sbt_slow_spoke_rubber = False
-        fast_belt_pos = [0.051, 0, 0]
-        model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
-                                                                                     sbt_slow_spoke_rubber, 
-                                                                                     fast_belt_pos)
-        average_velocity_list6, rotation_count_list6 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
-        bdiffarray6 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list6))
-
-        # -- Plot Results
+        # bd_increment = 0.005
+        bd_increment = 0.05
+        offset = [0.051, 0, 0.0049]
+        no_offset = [0.051, 0, 0]
+        
+        no_offset_velocities = []
+        offset_velocities = []
+        
         exp_bdiffarray, exp_average_velocity = get_experimental_data()
-        fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(9,6), constrained_layout=True)
 
-        # Existing scatter plots and titles
-        ax[0,0].scatter(bdiffarray1, average_velocity_list1, color='blue', s=10, label='Simulation Data')
-        ax[0,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[0,0].set_title('(a)', x=0.5, y=0.98)
-        ax[0,0].set_ylabel('Average Steady Velocity (m/s)')
-        ax[0,0].legend(loc='lower center')
+        slow_bool = [False, True]
+        fast_bool = [False, True]
+        ''' no_offset_velocities and offset_velocities order
+                - No rubber
+                - Fast rubber
+                - Slow rubber
+                - Both rubber 
+            '''
+        
+        for v1 in slow_bool:
+            for v2 in fast_bool:
+                no_offset_velocities.append(
+                    mass_simulation(timesteps=timesteps,
+                                starting_belt_diff=starting_belt_diff,
+                                belt_diff=belt_diff,
+                                bd_increment=bd_increment,
+                                sbt_fast_spoke_rubber=v2,
+                                sbt_slow_spoke_rubber=v1,
+                                fast_belt_pos=no_offset)
+                    )
+                print('sim complete')
+                
+        for v1 in slow_bool:
+            for v2 in fast_bool:
+                offset_velocities.append(
+                    mass_simulation(timesteps=timesteps,
+                                starting_belt_diff=starting_belt_diff,
+                                belt_diff=belt_diff,
+                                bd_increment=bd_increment,
+                                sbt_fast_spoke_rubber=v2,
+                                sbt_slow_spoke_rubber=v1,
+                                fast_belt_pos=offset)
+                    )
+        
+        print('no offset')
+        for velo in no_offset_velocities:
+            get_stats(exp_bdiffarray, velo)
+            # print(stats.ranksums(velo, no_offset_velocities))    
+            # print(stats.ttest_ind(velo, no_offset_velocities)) 
+          
+        print('offset')  
+        for velo in offset_velocities:
+            get_stats(exp_bdiffarray, velo)
+            # print(stats.ranksums(velo, offset_velocities))  
+            # print(stats.ttest_ind(velo, offset_velocities))   
+             
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(9,9), constrained_layout=True)
+        
+        ax[0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        labels = ['None', 'Fast', 'Slow', 'Both']
+        for idx in range(len(no_offset_velocities)):
+            x = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(no_offset_velocities[idx]))
+            ax[0].scatter(x, no_offset_velocities[idx], s=10, label=f'{labels[idx]} ({idx})')
+        ax[0].set_title('No Offset', x=0.5, y=0.98)
+        
+        
+        ax[1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimental Data')
+        for idx in range(len(offset_velocities)):
+            x = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(offset_velocities[idx]))
+            ax[1].scatter(x, offset_velocities[idx], s=10, label=f'{labels[idx]} ({idx})')
+        ax[1].set_title('Offset', x=0.5, y=0.98)
+                
+        for x in range(0,2):
+            ax[x].set_xlabel('Belt Speed Difference (m/s)')
+            ax[x].set_ylabel('Average Steady Velocity (m/s)')
+            ax[x].set_ylim(-0.4, 0.5)        
+            ax[x].spines['top'].set_visible(False)
+            ax[x].spines['right'].set_visible(False)
+        ax[0].legend(loc='lower center')
 
-        ax[0,1].scatter(bdiffarray2, average_velocity_list2, color='blue', s=10, label='Simulation Data')
-        ax[0,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[0,1].set_title('(b)', x=0.5, y=0.98)
-        ax[0,1].set_xlabel('Belt Speed Difference (m/s)')
+        # # -- Fig 1
+        # sbt_fast_spoke_rubber = True
+        # sbt_slow_spoke_rubber = False
+        # fast_belt_pos = [0.051, 0, 0]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list1, rotation_count_list1 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray1 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list1))
 
-        ax[0,2].scatter(bdiffarray3, average_velocity_list3, color='blue', s=10, label='Simulation Data')
-        ax[0,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[0,2].set_title('(c)', x=0.5, y=0.98)
+        # # -- Fig 2
+        # sbt_fast_spoke_rubber = True
+        # sbt_slow_spoke_rubber = False
+        # fast_belt_pos = [0.051, 0, 0.0049]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list2, rotation_count_list2 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray2 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list2))
 
-        ax[1,0].scatter(bdiffarray4, average_velocity_list4, color='blue', s=10, label='Simulation Data')
-        ax[1,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[1,0].set_title('(d)', x=0.5, y=0.98)
-        ax[1,0].set_ylabel('Average Steady Velocity (m/s)')
+        # # -- Fig 3
+        # sbt_fast_spoke_rubber = True
+        # sbt_slow_spoke_rubber = True
+        # fast_belt_pos = [0.051, 0, 0]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list3, rotation_count_list3 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray3 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list3))
 
-        ax[1,1].scatter(bdiffarray5, average_velocity_list5, color='blue', s=10, label='Simulation Data')
-        ax[1,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[1,1].set_title('(e)', x=0.5, y=0.98)
-        ax[1,1].set_xlabel('Belt Speed Difference (m/s)')
+        # # -- Fig 4
+        # sbt_fast_spoke_rubber = True
+        # sbt_slow_spoke_rubber = True
+        # fast_belt_pos = [0.051, 0, 0.0049]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list4, rotation_count_list4 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray4 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list4))
 
-        ax[1,2].scatter(bdiffarray6, average_velocity_list6, color='blue', s=10, label='Simulation Data')
-        ax[1,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
-        ax[1,2].set_title('(f)', x=0.5, y=0.98)
+        # # -- Fig 5
+        # sbt_fast_spoke_rubber = False
+        # sbt_slow_spoke_rubber = False
+        # fast_belt_pos = [0.051, 0, 0.0049]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list5, rotation_count_list5 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray5 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list5))
 
-        for row in ax:
-            for a in row:
-                # only keep left & bottom spine
-                a.spines['top'].set_visible(False)
-                a.spines['right'].set_visible(False)
+        # # -- Fig 6
+        # sbt_fast_spoke_rubber = False
+        # sbt_slow_spoke_rubber = False
+        # fast_belt_pos = [0.051, 0, 0]
+        # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, 
+        #                                                                              sbt_slow_spoke_rubber, 
+        #                                                                              fast_belt_pos)
+        # average_velocity_list6, rotation_count_list6 = loop_sim(timesteps, belt_diff, starting_belt_diff, bd_increment)
+        # bdiffarray6 = np.linspace((starting_belt_diff+bd_increment), belt_diff, num=len(average_velocity_list6))
 
-                # ensure ticks only on bottom & left
-                a.xaxis.set_ticks_position('bottom')
-                a.yaxis.set_ticks_position('left')
+        # # -- Plot Results
+        # exp_bdiffarray, exp_average_velocity = get_experimental_data()
+        # fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(9,6), constrained_layout=True)
 
-                # same y-range
-                a.set_ylim(0, 0.4)
+        # # Existing scatter plots and titles
+        # ax[0,0].scatter(bdiffarray1, average_velocity_list1, color='blue', s=10, label='Simulation Data')
+        # ax[0,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[0,0].set_title('(a)', x=0.5, y=0.98)
+        # ax[0,0].set_ylabel('Average Steady Velocity (m/s)')
+        # ax[0,0].legend(loc='lower center')
+
+        # ax[0,1].scatter(bdiffarray2, average_velocity_list2, color='blue', s=10, label='Simulation Data')
+        # ax[0,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[0,1].set_title('(b)', x=0.5, y=0.98)
+        # ax[0,1].set_xlabel('Belt Speed Difference (m/s)')
+
+        # ax[0,2].scatter(bdiffarray3, average_velocity_list3, color='blue', s=10, label='Simulation Data')
+        # ax[0,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[0,2].set_title('(c)', x=0.5, y=0.98)
+
+        # ax[1,0].scatter(bdiffarray4, average_velocity_list4, color='blue', s=10, label='Simulation Data')
+        # ax[1,0].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[1,0].set_title('(d)', x=0.5, y=0.98)
+        # ax[1,0].set_ylabel('Average Steady Velocity (m/s)')
+
+        # ax[1,1].scatter(bdiffarray5, average_velocity_list5, color='blue', s=10, label='Simulation Data')
+        # ax[1,1].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[1,1].set_title('(e)', x=0.5, y=0.98)
+        # ax[1,1].set_xlabel('Belt Speed Difference (m/s)')
+
+        # ax[1,2].scatter(bdiffarray6, average_velocity_list6, color='blue', s=10, label='Simulation Data')
+        # ax[1,2].scatter(exp_bdiffarray, exp_average_velocity, color='red', s=10, label='Experimenal Data')
+        # ax[1,2].set_title('(f)', x=0.5, y=0.98)
+
+        # for row in ax:
+        
+        #     # only keep left & bottom spine
+        #     row.spines['top'].set_visible(False)
+        #     row.spines['right'].set_visible(False)
+
+        #     # ensure ticks only on bottom & left
+        #     row.xaxis.set_ticks_position('bottom')
+        #     row.yaxis.set_ticks_position('left')
+
+        #     # same y-range
+        #     row.set_ylim(0, 0.4)
 
 
 
         # example of one panel needing a different y‐limit
-        ax[0,1].set_ylim(-0.4, 0.22)
+        # ax[0,1].set_ylim(-0.4, 0.22)
 
         plt.show()
 
     # -- Model Parameters for Results
     
 
-    model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_belt_pos)
+    # model, sbt_physics, sbt_task, sbt_env, action_spec = instantiate_environment(sbt_fast_spoke_rubber, sbt_slow_spoke_rubber, fast_belt_pos)
 
-    # -- Simulation Parameters
-    timesteps = 2000
-    starting_belt_diff = 0.15
-    belt_diff = 1.1 
-    bd_increment = 0.005
+    # # -- Simulation Parameters
+    # timesteps = 2000
+    # starting_belt_diff = 0.15
+    # belt_diff = 1.1 
+    # bd_increment = 0.005
 
     # -- Test single simulation
     # simulate_treadmill(timesteps, belt_diff)
@@ -272,4 +373,4 @@ if __name__ == '__main__':
     # robust_plotting(average_velocity_list, bdiffarray)
 
     # -- Test Rendering and Model
-    viewer.launch(sbt_env)
+    # viewer.launch(sbt_env)

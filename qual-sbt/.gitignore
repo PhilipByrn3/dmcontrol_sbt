@@ -1,3 +1,10 @@
+# Filetype exclusions
 **/*.svg
 **/.DS_Store
 **/*.pdf
+**/*.csv
+
+# Folder exclusions
+data/
+figures/
+validation/

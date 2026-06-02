@@ -12,3 +12,6 @@ twoalpha: 15.5
 twobeta: 4.5
 relative_spoke_angle: 40
 component_mass: 0.095405
+wheel_z_offset: 0.4
+slow_side_rubber_attachment: False
+fast_side_rubber_attachment: False
