@@ -272,24 +272,80 @@ class SplitBeltSim:
     # Statistical comparison
     # ------------------------------------------------------------------
 
-    def get_stats(self, exp_velocities, sim_velocities) -> dict:
+    def get_stats(self, exp_velocities, sim_velocities,
+                  exp_bdiffs=None, sim_bdiffs=None) -> dict:
         """
         Compare simulation and experimental velocity distributions.
 
-        Runs Wilcoxon rank-sum (non-parametric) and Welch's t-test.
+        Distribution tests (no x-alignment needed):
+            - Wilcoxon rank-sum (non-parametric)
+            - Welch's t-test (parametric)
+
+        Curve-fit metrics (require exp_bdiffs and sim_bdiffs):
+            - R²   — coefficient of determination (1 = perfect fit)
+            - RMSE — root mean squared error (m/s)
+            - MAE  — mean absolute error (m/s)
+
+            Because the two datasets are sampled at different belt-diff
+            values, the simulation curve is linearly interpolated at each
+            experimental x-value before computing residuals. Only
+            experimental points that fall within the simulation's x-range
+            are used (extrapolation is avoided).
+
+        Args:
+            exp_velocities: experimental avg velocities (array-like)
+            sim_velocities: simulation avg velocities (array-like)
+            exp_bdiffs:     experimental belt speed differences — required
+                            for curve-fit metrics (optional)
+            sim_bdiffs:     simulation belt speed differences — required
+                            for curve-fit metrics (optional)
 
         Returns:
-            dict with keys 'ranksums' and 'ttest_ind', each containing
-            {'statistic': float, 'p_value': float}
+            dict with keys:
+                'ranksums'  → {'statistic', 'p_value'}
+                'ttest_ind' → {'statistic', 'p_value'}
+                'fit'       → {'r2', 'rmse', 'mae', 'n_points'}
+                              (only present if exp_bdiffs and sim_bdiffs
+                              are both provided)
         """
         exp = np.asarray(exp_velocities)
         sim = np.asarray(sim_velocities)
         rs_stat, rs_pval = stats.ranksums(exp, sim)
         tt_stat, tt_pval = stats.ttest_ind(exp, sim)
-        return {
+
+        result = {
             'ranksums':  {'statistic': float(rs_stat), 'p_value': float(rs_pval)},
             'ttest_ind': {'statistic': float(tt_stat), 'p_value': float(tt_pval)},
         }
+
+        if exp_bdiffs is not None and sim_bdiffs is not None:
+            exp_x = np.asarray(exp_bdiffs)
+            sim_x = np.asarray(sim_bdiffs)
+            sim_y = np.asarray(sim_velocities)
+
+            # Only compare within the simulation's x-range (no extrapolation)
+            mask = (exp_x >= sim_x.min()) & (exp_x <= sim_x.max())
+            exp_x_in = exp_x[mask]
+            exp_y_in = np.asarray(exp_velocities)[mask]
+
+            # Interpolate simulation curve at each experimental x-value
+            sim_y_interp = np.interp(exp_x_in, sim_x, sim_y)
+
+            residuals  = exp_y_in - sim_y_interp
+            ss_res     = np.sum(residuals ** 2)
+            ss_tot     = np.sum((exp_y_in - exp_y_in.mean()) ** 2)
+            r2         = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
+            rmse       = float(np.sqrt(np.mean(residuals ** 2)))
+            mae        = float(np.mean(np.abs(residuals)))
+
+            result['fit'] = {
+                'r2':       float(r2),
+                'rmse':     rmse,
+                'mae':      mae,
+                'n_points': int(mask.sum()),
+            }
+
+        return result
 
     # ------------------------------------------------------------------
     # Visualisation
@@ -552,7 +608,7 @@ def plot_offset_permutations(results: list,
             ax.set_ylabel(f"{result['rubber_label']}\n\nAvg Steady Velocity (m/s)",
                           fontsize=9)
         ax.set_xlabel('Belt Speed Difference (m/s)')
-        ax.set_ylim(0, 1)
+        ax.set_ylim(0, 2)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
@@ -593,9 +649,14 @@ def main():
 
         print('\nStatistical comparison per configuration:')
         for r in results:
-            s = sim_base.get_stats(exp_velocities, r['velocities'])
+            s = sim_base.get_stats(exp_velocities, r['velocities'],
+                                   exp_bdiffs, r['bdiffs'])
             rs, tt = s['ranksums'], s['ttest_ind']
+            fit = s.get('fit', {})
             print(f"  {r['label']:<38} "
+                  f"R²={fit.get('r2', float('nan')):.3f}  "
+                  f"RMSE={fit.get('rmse', float('nan')):.4f}  "
+                  f"MAE={fit.get('mae', float('nan')):.4f}  "
                   f"ranksums p={rs['p_value']:.4f}  "
                   f"ttest p={tt['p_value']:.4f}")
 
@@ -609,9 +670,14 @@ def main():
 
         print('\nStatistical comparison per configuration:')
         for r in results:
-            s = sim_base.get_stats(exp_velocities, r['velocities'])
+            s = sim_base.get_stats(exp_velocities, r['velocities'],
+                                   exp_bdiffs, r['bdiffs'])
             rs, tt = s['ranksums'], s['ttest_ind']
+            fit = s.get('fit', {})
             print(f"  {r['label']:<22} "
+                  f"R²={fit.get('r2', float('nan')):.3f}  "
+                  f"RMSE={fit.get('rmse', float('nan')):.4f}  "
+                  f"MAE={fit.get('mae', float('nan')):.4f}  "
                   f"ranksums p={rs['p_value']:.4f}  "
                   f"ttest p={tt['p_value']:.4f}")
 
@@ -624,9 +690,14 @@ def main():
         bdiffs, velocities = sim_base.run_sweep()
 
         print('\nStatistical comparison (simulation vs. Butterfield experimental):')
-        s  = sim_base.get_stats(exp_velocities, velocities)
+        s  = sim_base.get_stats(exp_velocities, velocities, exp_bdiffs, bdiffs)
         rs = s['ranksums']
         tt = s['ttest_ind']
+        fit = s.get('fit', {})
+        print(f"  R²                : {fit.get('r2', float('nan')):.4f}  "
+              f"(n={fit.get('n_points', '?')} overlapping points)")
+        print(f"  RMSE              : {fit.get('rmse', float('nan')):.4f} m/s")
+        print(f"  MAE               : {fit.get('mae', float('nan')):.4f} m/s")
         print(f"  Wilcoxon rank-sum : stat={rs['statistic']:+.4f},  p={rs['p_value']:.4f}")
         print(f"  Welch's t-test    : stat={tt['statistic']:+.4f},  p={tt['p_value']:.4f}")
 
