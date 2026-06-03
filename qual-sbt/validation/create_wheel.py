@@ -60,6 +60,12 @@ class SpokeSet:
         spoke_length   = config['spoke_length']
         component_mass = config['component_mass']
         angle_step     = config['spoke_angle_step']
+        rubber_friction= config['rubber_friction']
+        rubber_solimp  = config['rubber_solimp']
+        rubber_solref  = config['rubber_solref']
+        smd_range      = config['smd_range']
+        smd_stiffness  = config['smd_stiffness']
+        smd_damping    = config['smd_damping']
         side_name      = 'slow' if side < 0 else 'fast'
 
         # Cluster body: offset along axle X-axis, pre-rotated by offset_angle
@@ -104,18 +110,18 @@ class SpokeSet:
                     size=[0.015],
                     pos=[0, 0, spoke_length],
                     rgba=[0.1, 0.1, 0.1, 1],
-                    friction=config['rubber_friction'],
-                    solimp=config['rubber_solimp'],
-                    solref=config['rubber_solref']
+                    friction=rubber_friction,
+                    solimp=rubber_solimp,
+                    solref=rubber_solref
                 )
                 rubber_body.add(
                     'joint',
                     type='slide',
                     axis=[0, 0, 1],
                     pos=[0, 0, spoke_length],
-                    range=config['smd_range'],
-                    stiffness=config['smd_stiffness'],
-                    damping=config['smd_damping']
+                    range=smd_range,
+                    stiffness=smd_stiffness,
+                    damping=smd_damping
                 )
 
             angle += angle_step
