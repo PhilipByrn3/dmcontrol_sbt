@@ -63,6 +63,7 @@ class SpokeSet:
         rubber_friction= config['rubber_friction']
         rubber_solimp  = config['rubber_solimp']
         rubber_solref  = config['rubber_solref']
+        rubber_size    = config['rubber_size']
         smd_range      = config['smd_range']
         smd_stiffness  = config['smd_stiffness']
         smd_damping    = config['smd_damping']
@@ -107,7 +108,7 @@ class SpokeSet:
                 rubber_body.add(
                     'geom',
                     type='sphere',
-                    size=[0.015],
+                    size=rubber_size,
                     pos=[0, 0, spoke_length],
                     rgba=[0.1, 0.1, 0.1, 1],
                     friction=rubber_friction,

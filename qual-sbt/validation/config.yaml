@@ -22,9 +22,10 @@ wheel_height: 0.38          # m, initial axle height above ground
 # while preserving energy dissipation on the slow belt. See CLAUDE.md.
 
 # --- Rubber parameters -------------------------------------------------------
-rubber_friction: [1, 0.1, 0.1]
+rubber_friction: [1, 1, 0.1]
 rubber_solimp: [0.8, 0.8, 0.01]
 rubber_solref: [0.02, 1] # do not modify
+rubber_size: [0.017] # 0.017 is good
 smd_range: [0, 0.015] # spring mass damper
 smd_stiffness: 50
 smd_damping: 10
@@ -50,7 +51,7 @@ max_belt_diff: 1.1          # m/s, sweep end value
 belt_diff_increment: 0.05   # m/s, sweep step size
 
 max_timesteps: 2000         # per-trial timestep cap (at 0.01 s/step = 20 s max)
-target_rotations: 3         # end trial early after this many full wheel rotations
+target_rotations: 12         # end trial early after this many full wheel rotations
 
 # --- Output options ----------------------------------------------------------
 # Priority: run_offset_comparison > run_all_rubber > single sweep

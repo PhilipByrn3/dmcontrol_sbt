@@ -608,7 +608,7 @@ def plot_offset_permutations(results: list,
             ax.set_ylabel(f"{result['rubber_label']}\n\nAvg Steady Velocity (m/s)",
                           fontsize=9)
         ax.set_xlabel('Belt Speed Difference (m/s)')
-        ax.set_ylim(0, 2)
+        ax.set_ylim(0, 0.4)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
