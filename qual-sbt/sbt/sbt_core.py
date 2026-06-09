@@ -368,7 +368,7 @@ def main():
 
         print('\nSaving plot...')
         plot_tied_belt(speeds, velocities,
-                       save_path=save_dir / 'tied_belt.svg', show=SHOW_PLOT)
+                       save_path=save_dir / 'tied_belt.eps', show=SHOW_PLOT)
 
     elif RUN_OFFSET_COMPARISON:
         save_dir = FIGURES_PATH / f'offset_comparison_{timestamp}'
@@ -428,7 +428,7 @@ def main():
 
         print('\nSaving plot...')
         plot_comparison(bdiffs, velocities, exp_bdiffs, exp_velocities,
-                        save_path=save_dir / 'validation.svg', show=SHOW_PLOT)
+                        save_path=save_dir / 'validation.eps', show=SHOW_PLOT)
 
 
 if __name__ == '__main__':

@@ -14,8 +14,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 # Use Times New Roman for all plot text
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["font.serif"]  = ["Times New Roman", "Times", "DejaVu Serif"]
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans"]
+plt.rcParams["font.size"]       = 10
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -26,7 +27,7 @@ def _label_to_filename(label: str) -> str:
     return (label.lower()
                  .replace(' ', '_')
                  .replace('—', '-')
-                 .replace('/', '-') + '.svg')
+                 .replace('/', '-') + '.eps')
 
 
 def _style_ax(ax):
@@ -51,10 +52,10 @@ def _plot_single(result: dict, exp_bdiffs, exp_velocities,
     ax.set_xlabel(xlabel)
     ax.set_ylabel('Average Steady Velocity (m/s)')
     ax.set_ylim(0, 0.4)
-    ax.legend(fontsize=9)
+    ax.legend(fontsize=10)
     _style_ax(ax)
     if save_path:
-        fig.savefig(save_path, format='svg')
+        fig.savefig(save_path, format='eps')
         print(f'  saved → {save_path}')
     if show:
         plt.show()
@@ -83,15 +84,15 @@ def plot_comparison(sim_bdiffs, sim_velocities,
     ax.scatter(sim_bdiffs, sim_velocities, s=12, color='blue', zorder=3,
                label='MuJoCo simulation')
 
-    ax.set_xlabel('Belt Speed Difference (m/s)', fontsize=13)
-    ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=13)
+    ax.set_xlabel('Belt Speed Difference (m/s)', fontsize=10)
+    ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=10)
     ax.set_title(title or 'Simulation vs. Experimental Results')
     ax.set_ylim(0, 0.4)
-    ax.legend(fontsize=9)
+    ax.legend(fontsize=10)
     _style_ax(ax)
 
     if save_path:
-        fig.savefig(save_path, format='svg')
+        fig.savefig(save_path, format='eps')
         print(f'Plot saved → {save_path}')
 
     if show:
@@ -123,15 +124,15 @@ def plot_tied_belt(sim_speeds, sim_velocities,
     ax.scatter(sim_speeds, sim_velocities, s=12, color='blue', zorder=3,
                label='MuJoCo (tied belts)')
 
-    ax.set_xlabel('Belt Speed (m/s)', fontsize=13)
-    ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=13)
+    ax.set_xlabel('Belt Speed (m/s)', fontsize=10)
+    ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=10)
     ax.set_title(title or 'Tied-Belt Sweep')
-    ax.set_ylim(0, 0.4)
-    ax.legend(fontsize=9)
+    ax.set_ylim(-2, 1)
+    ax.legend(fontsize=10)
     _style_ax(ax)
 
     if save_path:
-        fig.savefig(save_path, format='svg')
+        fig.savefig(save_path, format='eps')
         print(f'Plot saved → {save_path}')
 
     if show:
@@ -169,7 +170,7 @@ def plot_permutations(results: list,
     fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharey=True,
                              constrained_layout=True)
     fig.suptitle('Rubber Configuration Comparison vs. Butterfield et al.',
-                 fontsize=14)
+                 fontsize=10)
 
     for ax, result in zip(axes.flat, results):
         ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
@@ -182,11 +183,11 @@ def plot_permutations(results: list,
         ax.set_ylim(0, 0.4)
         _style_ax(ax)
 
-    axes[0, 0].legend(fontsize=9)
+    axes[0, 0].legend(fontsize=10)
 
     if save_dir:
-        p = save_dir / 'all_rubber_configs.svg'
-        fig.savefig(p, format='svg')
+        p = save_dir / 'all_rubber_configs.eps'
+        fig.savefig(p, format='eps')
         print(f'  saved → {p}')
 
     if show:
@@ -231,10 +232,10 @@ def plot_offset_permutations(results: list,
                              sharey=True,
                              constrained_layout=True)
     fig.suptitle('Rubber × Offset Configuration Comparison vs. Butterfield et al.',
-                 fontsize=14)
+                 fontsize=10)
 
     for col, (_, offset_label) in enumerate(OFFSET_PERMUTATIONS):
-        axes[0, col].set_title(offset_label, fontsize=12, fontweight='bold', pad=10)
+        axes[0, col].set_title(offset_label, fontsize=10, fontweight='bold', pad=10)
 
     for result in results:
         row = [r[2] for r in RUBBER_PERMUTATIONS].index(result['rubber_label'])
@@ -248,16 +249,16 @@ def plot_offset_permutations(results: list,
 
         if col == 0:
             ax.set_ylabel(f"{result['rubber_label']}\n\nAvg Steady Velocity (m/s)",
-                          fontsize=9)
+                          fontsize=10)
         ax.set_xlabel('Belt Speed Difference (m/s)')
         ax.set_ylim(0, 0.4)
         _style_ax(ax)
 
-    axes[0, 0].legend(fontsize=9)
+    axes[0, 0].legend(fontsize=10)
 
     if save_dir:
-        p = save_dir / 'all_rubber_offset_configs.svg'
-        fig.savefig(p, format='svg')
+        p = save_dir / 'all_rubber_offset_configs.eps'
+        fig.savefig(p, format='eps')
         print(f'  saved → {p}')
 
     if show:
