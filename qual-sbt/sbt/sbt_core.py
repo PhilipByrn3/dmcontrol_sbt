@@ -31,6 +31,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+# Use Times New Roman for all plot text
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Times New Roman", "Times", "DejaVu Serif"]
 import yaml
 from scipy import stats
 
@@ -350,10 +354,8 @@ class SplitBeltSim:
         ax.spines['right'].set_visible(False)
 
         if save_path:
-            p   = Path(save_path)
-            fmt = 'svg' if p.suffix == '.svg' else 'pdf'
-            fig.savefig(p, format=fmt)
-            print(f'Plot saved → {p}')
+            fig.savefig(save_path, format='svg')
+            print(f'Plot saved → {save_path}')
 
         if show:
             plt.show()
@@ -367,6 +369,41 @@ class SplitBeltSim:
     def launch_viewer(self):
         """Launch the dm_control interactive 3-D viewer."""
         viewer.launch(self.env)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _label_to_filename(label: str) -> str:
+    """Convert a result label to a safe SVG filename."""
+    return label.lower().replace(' ', '_').replace('—', '-').replace('/', '-') + '.svg'
+
+
+def _plot_single(result: dict, exp_bdiffs, exp_velocities,
+                 save_path=None, show: bool = False):
+    """
+    Single scatter panel for one permutation result.
+    Returns (fig, ax); caller is responsible for closing.
+    """
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
+               label='Butterfield et al.')
+    ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
+               zorder=3, label='MuJoCo')
+    ax.set_title(result['label'])
+    ax.set_xlabel('Belt Speed Difference (m/s)')
+    ax.set_ylabel('Average Steady Velocity (m/s)')
+    ax.set_ylim(0, 0.4)
+    ax.legend(fontsize=9)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    if save_path:
+        fig.savefig(save_path, format='svg')
+        print(f'  saved → {save_path}')
+    if show:
+        plt.show()
+    return fig, ax
 
 
 # ---------------------------------------------------------------------------
@@ -406,9 +443,21 @@ def run_rubber_permutations(config: dict) -> list:
 
 def plot_permutations(results: list,
                       exp_bdiffs, exp_velocities,
-                      save_path=None,
+                      save_dir=None,
                       show: bool = True):
-    """2×2 grid — one panel per rubber configuration, shared Y axis."""
+    """
+    Saves one SVG per rubber configuration plus a combined 2×2 grid SVG,
+    all inside save_dir (if provided).
+    """
+    # --- individual panels ---
+    if save_dir:
+        for result in results:
+            fname = _label_to_filename(result['label'])
+            _plot_single(result, exp_bdiffs, exp_velocities,
+                         save_path=save_dir / fname, show=False)
+            plt.close()
+
+    # --- combined 2×2 grid ---
     fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharey=True,
                              constrained_layout=True)
     fig.suptitle('Rubber Configuration Comparison vs. Butterfield et al.',
@@ -428,11 +477,10 @@ def plot_permutations(results: list,
 
     axes[0, 0].legend(fontsize=9)
 
-    if save_path:
-        p   = Path(save_path)
-        fmt = 'svg' if p.suffix == '.svg' else 'pdf'
-        fig.savefig(p, format=fmt)
-        print(f'Plot saved → {p}')
+    if save_dir:
+        p = save_dir / 'all_rubber_configs.svg'
+        fig.savefig(p, format='svg')
+        print(f'  saved → {p}')
 
     if show:
         plt.show()
@@ -470,12 +518,21 @@ def run_offset_permutations(config: dict) -> list:
 
 def plot_offset_permutations(results: list,
                              exp_bdiffs, exp_velocities,
-                             save_path=None,
+                             save_dir=None,
                              show: bool = True):
     """
-    4×2 grid — rows are rubber configs, columns are offset conditions,
-    shared Y axis.
+    Saves one SVG per rubber × offset combination plus a combined 4×2 grid SVG,
+    all inside save_dir (if provided).
     """
+    # --- individual panels ---
+    if save_dir:
+        for result in results:
+            fname = _label_to_filename(result['label'])
+            _plot_single(result, exp_bdiffs, exp_velocities,
+                         save_path=save_dir / fname, show=False)
+            plt.close()
+
+    # --- combined 4×2 grid ---
     n_rubber = len(RUBBER_PERMUTATIONS)
     n_offset = len(OFFSET_PERMUTATIONS)
 
@@ -509,11 +566,10 @@ def plot_offset_permutations(results: list,
 
     axes[0, 0].legend(fontsize=9)
 
-    if save_path:
-        p   = Path(save_path)
-        fmt = 'svg' if p.suffix == '.svg' else 'pdf'
-        fig.savefig(p, format=fmt)
-        print(f'Plot saved → {p}')
+    if save_dir:
+        p = save_dir / 'all_rubber_offset_configs.svg'
+        fig.savefig(p, format='svg')
+        print(f'  saved → {p}')
 
     if show:
         plt.show()
@@ -530,13 +586,16 @@ def main():
     RUN_ALL_RUBBER        = config['run_all_rubber']
     RUN_OFFSET_COMPARISON = config['run_offset_comparison']
     SHOW_PLOT             = config['show_plot']
-    FIGURES_PATH.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
+    timestamp             = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
 
     sim_base = SplitBeltSim(config)
     exp_bdiffs, exp_velocities = sim_base.load_experimental_data()
 
     if RUN_OFFSET_COMPARISON:
+        save_dir = FIGURES_PATH / f'offset_comparison_{timestamp}'
+        save_dir.mkdir(parents=True, exist_ok=True)
+        print(f'Saving plots to {save_dir}')
+
         print('Running sweep for all rubber × offset configurations (8 total)...')
         results = run_offset_permutations(config)
 
@@ -553,11 +612,15 @@ def main():
                   f"ranksums p={rs['p_value']:.4f}  "
                   f"ttest p={tt['p_value']:.4f}")
 
-        save_path = FIGURES_PATH / f'all-figures_{timestamp}.svg'
+        print('\nSaving plots...')
         plot_offset_permutations(results, exp_bdiffs, exp_velocities,
-                                 save_path=save_path, show=SHOW_PLOT)
+                                 save_dir=save_dir, show=SHOW_PLOT)
 
     elif RUN_ALL_RUBBER:
+        save_dir = FIGURES_PATH / f'rubber_comparison_{timestamp}'
+        save_dir.mkdir(parents=True, exist_ok=True)
+        print(f'Saving plots to {save_dir}')
+
         print('Running sweep for all rubber configurations...')
         results = run_rubber_permutations(config)
 
@@ -574,11 +637,15 @@ def main():
                   f"ranksums p={rs['p_value']:.4f}  "
                   f"ttest p={tt['p_value']:.4f}")
 
-        save_path = FIGURES_PATH / f'all-figures_{timestamp}.svg'
+        print('\nSaving plots...')
         plot_permutations(results, exp_bdiffs, exp_velocities,
-                          save_path=save_path, show=SHOW_PLOT)
+                          save_dir=save_dir, show=SHOW_PLOT)
 
     else:
+        save_dir = FIGURES_PATH / f'single_sweep_{timestamp}'
+        save_dir.mkdir(parents=True, exist_ok=True)
+        print(f'Saving plots to {save_dir}')
+
         print('Running belt speed difference sweep...')
         bdiffs, velocities = sim_base.run_sweep()
 
@@ -596,10 +663,10 @@ def main():
 
         sim_base.save_sim_data(bdiffs, velocities)
 
-        save_path = FIGURES_PATH / f'validation_{timestamp}.svg'
+        print('\nSaving plots...')
         sim_base.plot_comparison(
             bdiffs, velocities, exp_bdiffs, exp_velocities,
-            save_path=save_path, show=SHOW_PLOT
+            save_path=save_dir / 'validation.svg', show=SHOW_PLOT
         )
 
 
