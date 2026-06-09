@@ -3,25 +3,21 @@ sbt_core.py
 Core simulation environment for the split-belt rimless wheel.
 
 SplitBeltSim builds the MuJoCo model and wraps it in a standard dm_control
-Environment / Task. The Task stub makes this environment compatible with RL
-frameworks without adding any learning machinery to what is purely a physics
-model. Belt speeds are set by directly writing physics.named.data.qvel rather
-than through the action interface.
+Environment / Task. Belt speeds are set by directly writing
+physics.named.data.qvel rather than through the action interface.
 
 Validation workflow:
     python sbt_core.py
-    → sweeps belt speed differences, compares to Butterfield et al. data,
-      saves a plot to figures/ and prints statistical test results.
 
-Programmatic usage:
-    from sbt_core import SplitBeltSim, load_config
-    sim = SplitBeltSim(load_config())
-    bdiffs, velocities = sim.run_sweep()
-    exp_bdiffs, exp_velocities = sim.load_experimental_data()
-    sim.plot_comparison(bdiffs, velocities, exp_bdiffs, exp_velocities)
+Modes (set in config.yaml):
+    run_offset_comparison — 8 sweeps: all rubber × offset combinations
+    run_all_rubber        — 4 sweeps: all rubber configurations
+    run_tied_belt         — tied-belt sweep: both belts at the same speed
+    (default)             — single split-belt sweep
 
-Interactive viewer:
-    sim.launch_viewer()
+See also:
+    plotting.py  — all plotting functions
+    analysis.py  — statistical comparison helpers
 """
 
 import math
@@ -30,13 +26,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
-# Use Times New Roman for all plot text
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["font.serif"] = ["Times New Roman", "Times", "DejaVu Serif"]
 import yaml
-from scipy import stats
 
 from dm_control import mujoco, mjcf, viewer
 from dm_control.rl.control import Environment
@@ -44,6 +34,9 @@ from dm_control.suite.base import Task
 
 from create_wheel import AssembleWheel
 from create_treadmill import AssembleTreadmill
+from analysis import get_stats, print_stats
+from plotting import (plot_comparison, plot_tied_belt,
+                      plot_permutations, plot_offset_permutations)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -69,8 +62,8 @@ class SplitBeltTask(Task):
     """
     Minimal dm_control Task stub for the split-belt treadmill.
 
-    Belt velocities are not action-driven; SplitBeltSim.simulate_trial()
-    overwrites physics.named.data.qvel directly on each timestep.
+    Belt velocities are not action-driven; SplitBeltSim overwrites
+    physics.named.data.qvel directly on each timestep.
 
     get_observation() returns a dict of wheel state variables — enough for
     a policy to observe the system if used in an RL context.
@@ -103,21 +96,17 @@ class SplitBeltSim:
     """
     Split-belt treadmill simulation environment.
 
-    Builds a parametric MuJoCo model from config, sweeps belt speed
-    differences, and compares steady-state wheel velocity to the
-    Butterfield et al. (2022) experimental data.
-
     Public attributes:
         env     — dm_control.rl.control.Environment (RL-compatible)
         physics — dm_control.mujoco.Physics
         config  — dict of simulation parameters
 
     Key methods:
-        simulate_trial(belt_diff)                    → float (avg velocity)
-        run_sweep()                                  → (bdiffs, velocities)
-        load_experimental_data()                     → (bdiffs, velocities)
-        get_stats(exp_velocities, sim_velocities)    → dict
-        plot_comparison(...)                         → (fig, ax)
+        simulate_trial(belt_diff)       → float  split-belt: slow=0, fast=belt_diff
+        simulate_trial_tied(belt_speed) → float  tied-belt:  both belts = belt_speed
+        run_sweep()                     → (bdiffs, velocities)
+        run_tied_sweep()                → (speeds, velocities)
+        load_experimental_data()        → (bdiffs, velocities)
         save_sim_data(bdiffs, velocities)
         launch_viewer()
     """
@@ -150,43 +139,28 @@ class SplitBeltSim:
         AssembleTreadmill(model.worldbody, self.config)
         AssembleWheel(model.worldbody, self.config)
 
-        model.sensor.add(
-            'framepos',
-            name='axlepos',
-            objtype='xbody',
-            objname=AssembleWheel.BODY_NAME
-        )
+        model.sensor.add('framepos', name='axlepos',
+                         objtype='xbody', objname=AssembleWheel.BODY_NAME)
 
         return model
 
     # ------------------------------------------------------------------
-    # Simulation
+    # Core trial runner (shared logic)
     # ------------------------------------------------------------------
 
-    def simulate_trial(self, belt_diff: float) -> float:
+    def _run_trial(self, slow_speed: float, fast_speed: float) -> float:
         """
-        Run one trial at a fixed belt speed difference.
-
-        The slow belt is stationary; the fast belt runs at `belt_diff` m/s.
-        The wheel receives an initial forward impulse equal to the fast belt
-        speed, then runs freely until it completes `target_rotations` full
-        rotations or `max_timesteps` is reached.
-
-        Average steady velocity = final_y_position / final_elapsed_time,
-        matching the method used by Butterfield et al. experimentally.
-
-        Args:
-            belt_diff: fast belt speed (m/s); slow belt is always 0 m/s
+        Shared trial loop. Resets the environment, gives the wheel an
+        initial push at fast_speed, then steps until target_rotations or
+        max_timesteps is reached.
 
         Returns:
-            Average steady-state wheel velocity (m/s)
+            avg_velocity = final_y_position / final_elapsed_time
         """
         self.env.reset()
 
-        slow_speed = float(self.config['slow_belt_speed'])
-        fast_speed = slow_speed + belt_diff
-        max_steps  = self.config['max_timesteps']
-        target     = self.config['target_rotations']
+        max_steps = self.config['max_timesteps']
+        target    = self.config['target_rotations']
 
         self.physics.named.data.qvel[AssembleWheel.JOINT_Y] = fast_speed
 
@@ -212,31 +186,79 @@ class SplitBeltSim:
 
         return pos_list[-1] / time_list[-1]
 
-    def run_sweep(self) -> tuple:
+    # ------------------------------------------------------------------
+    # Public simulation methods
+    # ------------------------------------------------------------------
+
+    def simulate_trial(self, belt_diff: float) -> float:
         """
-        Sweep belt speed differences from config['starting_belt_diff'] to
-        config['max_belt_diff'] in steps of config['belt_diff_increment'].
+        Split-belt trial: slow belt stationary, fast belt at belt_diff m/s.
+
+        Args:
+            belt_diff: fast belt speed (m/s)
 
         Returns:
-            (bdiffs, velocities): numpy array of belt diffs and list of
-            corresponding average steady-state wheel velocities
+            Average steady-state wheel velocity (m/s)
         """
+        slow_speed = float(self.config['slow_belt_speed'])
+        return self._run_trial(slow_speed, slow_speed + belt_diff)
+
+    def simulate_trial_tied(self, belt_speed: float) -> float:
+        """
+        Tied-belt trial: both belts running at the same speed.
+
+        No speed difference between belts — symmetric ground contact.
+        The wheel is pushed at belt_speed and both belts run at belt_speed.
+
+        Args:
+            belt_speed: speed of both belts (m/s)
+
+        Returns:
+            Average steady-state wheel velocity (m/s)
+        """
+        return self._run_trial(belt_speed, belt_speed)
+
+    def run_sweep(self) -> tuple:
+        """
+        Split-belt sweep: slow=0, fast steps from starting_belt_diff to
+        max_belt_diff in belt_diff_increment steps.
+
+        Returns:
+            (bdiffs, velocities): numpy arrays
+        """
+        return self._sweep(self.simulate_trial, label='belt_diff')
+
+    def run_tied_sweep(self) -> tuple:
+        """
+        Tied-belt sweep: both belts step from starting_belt_diff to
+        max_belt_diff in belt_diff_increment steps.
+
+        Reuses the same sweep range as the split-belt sweep so results
+        are directly comparable on the same x-axis.
+
+        Returns:
+            (speeds, velocities): numpy arrays
+        """
+        return self._sweep(self.simulate_trial_tied, label='belt_speed')
+
+    def _sweep(self, trial_fn, label: str = 'belt_diff') -> tuple:
+        """Generic sweep loop shared by run_sweep and run_tied_sweep."""
         start = self.config['starting_belt_diff']
         end   = self.config['max_belt_diff']
         step  = self.config['belt_diff_increment']
 
-        bdiffs     = []
+        xs         = []
         velocities = []
-        bd = start
+        x = start
 
-        while bd <= end + 1e-9:
-            v = self.simulate_trial(bd)
-            bdiffs.append(round(bd, 6))
+        while x <= end + 1e-9:
+            v = trial_fn(x)
+            xs.append(round(x, 6))
             velocities.append(v)
-            print(f'  belt_diff={bdiffs[-1]:.3f} m/s  →  avg_vel={v:.4f} m/s')
-            bd = round(bd + step, 6)
+            print(f'  {label}={xs[-1]:.3f} m/s  →  avg_vel={v:.4f} m/s')
+            x = round(x + step, 6)
 
-        return np.array(bdiffs), velocities
+        return np.array(xs), velocities
 
     # ------------------------------------------------------------------
     # Data I/O
@@ -254,113 +276,11 @@ class SplitBeltSim:
         df = pd.read_csv(p, index_col=0)
         return df['X'].values.astype(float), df['Y'].values.astype(float)
 
-    def save_sim_data(self, bdiffs, velocities, path=None):
+    def save_sim_data(self, xs, velocities, path=None):
         """Save simulation sweep results to CSV."""
         p = Path(path) if path else SIM_DATA_PATH
-        pd.DataFrame({'BDiffs': bdiffs, 'AvgVelo': velocities}).to_csv(p, index=False)
+        pd.DataFrame({'X': xs, 'AvgVelo': velocities}).to_csv(p, index=False)
         print(f'Simulation data saved → {p}')
-
-    # ------------------------------------------------------------------
-    # Statistical comparison
-    # ------------------------------------------------------------------
-
-    def get_stats(self, exp_velocities, sim_velocities,
-                  exp_bdiffs=None, sim_bdiffs=None) -> dict:
-        """
-        Compare simulation and experimental velocity distributions.
-
-        Distribution tests (no x-alignment needed):
-            - Wilcoxon rank-sum (non-parametric)
-            - Welch's t-test (parametric)
-
-        Curve-fit metrics (require exp_bdiffs and sim_bdiffs):
-            - R²   — coefficient of determination (1 = perfect fit)
-            - RMSE — root mean squared error (m/s)
-            - MAE  — mean absolute error (m/s)
-
-            The simulation curve is linearly interpolated at each
-            experimental x-value; only points within the sim's x-range
-            are used (no extrapolation).
-
-        Returns:
-            dict with keys:
-                'ranksums'  → {'statistic', 'p_value'}
-                'ttest_ind' → {'statistic', 'p_value'}
-                'fit'       → {'r2', 'rmse', 'mae', 'n_points'}
-                              (only present when bdiffs are provided)
-        """
-        exp = np.asarray(exp_velocities)
-        sim = np.asarray(sim_velocities)
-        rs_stat, rs_pval = stats.ranksums(exp, sim)
-        tt_stat, tt_pval = stats.ttest_ind(exp, sim)
-
-        result = {
-            'ranksums':  {'statistic': float(rs_stat), 'p_value': float(rs_pval)},
-            'ttest_ind': {'statistic': float(tt_stat), 'p_value': float(tt_pval)},
-        }
-
-        if exp_bdiffs is not None and sim_bdiffs is not None:
-            exp_x = np.asarray(exp_bdiffs)
-            sim_x = np.asarray(sim_bdiffs)
-            sim_y = np.asarray(sim_velocities)
-
-            mask        = (exp_x >= sim_x.min()) & (exp_x <= sim_x.max())
-            exp_x_in    = exp_x[mask]
-            exp_y_in    = np.asarray(exp_velocities)[mask]
-            sim_y_interp = np.interp(exp_x_in, sim_x, sim_y)
-
-            residuals = exp_y_in - sim_y_interp
-            ss_res    = np.sum(residuals ** 2)
-            ss_tot    = np.sum((exp_y_in - exp_y_in.mean()) ** 2)
-            r2        = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
-
-            result['fit'] = {
-                'r2':       float(r2),
-                'rmse':     float(np.sqrt(np.mean(residuals ** 2))),
-                'mae':      float(np.mean(np.abs(residuals))),
-                'n_points': int(mask.sum()),
-            }
-
-        return result
-
-    # ------------------------------------------------------------------
-    # Visualisation
-    # ------------------------------------------------------------------
-
-    def plot_comparison(self, sim_bdiffs, sim_velocities,
-                        exp_bdiffs, exp_velocities,
-                        title: str = '',
-                        save_path=None,
-                        show: bool = True):
-        """
-        Scatter plot of simulation results overlaid on Butterfield data.
-
-        Returns:
-            (fig, ax)
-        """
-        fig, ax = plt.subplots(figsize=(7, 5))
-
-        ax.scatter(exp_bdiffs, exp_velocities, s=12, color='red', zorder=3,
-                   label='Butterfield et al. (experimental)')
-        ax.scatter(sim_bdiffs, sim_velocities, s=12, color='blue', zorder=3,
-                   label='MuJoCo simulation')
-
-        ax.set_xlabel('Belt Speed Difference (m/s)', fontsize=13)
-        ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=13)
-        ax.set_title(title or 'Simulation vs. Experimental Results')
-        ax.set_ylim(0, 0.4)
-        ax.legend(fontsize=9)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-
-        if save_path:
-            fig.savefig(save_path, format='svg')
-            print(f'Plot saved → {save_path}')
-
-        if show:
-            plt.show()
-
-        return fig, ax
 
     # ------------------------------------------------------------------
     # Viewer
@@ -372,42 +292,7 @@ class SplitBeltSim:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _label_to_filename(label: str) -> str:
-    """Convert a result label to a safe SVG filename."""
-    return label.lower().replace(' ', '_').replace('—', '-').replace('/', '-') + '.svg'
-
-
-def _plot_single(result: dict, exp_bdiffs, exp_velocities,
-                 save_path=None, show: bool = False):
-    """
-    Single scatter panel for one permutation result.
-    Returns (fig, ax); caller is responsible for closing.
-    """
-    fig, ax = plt.subplots(figsize=(7, 5))
-    ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
-               label='Butterfield et al.')
-    ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
-               zorder=3, label='MuJoCo')
-    ax.set_title(result['label'])
-    ax.set_xlabel('Belt Speed Difference (m/s)')
-    ax.set_ylabel('Average Steady Velocity (m/s)')
-    ax.set_ylim(0, 0.4)
-    ax.legend(fontsize=9)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    if save_path:
-        fig.savefig(save_path, format='svg')
-        print(f'  saved → {save_path}')
-    if show:
-        plt.show()
-    return fig, ax
-
-
-# ---------------------------------------------------------------------------
-# Permutation sweeps
+# Permutation sweep runners
 # ---------------------------------------------------------------------------
 
 RUBBER_PERMUTATIONS = [
@@ -424,157 +309,35 @@ OFFSET_PERMUTATIONS = [
 
 
 def run_rubber_permutations(config: dict) -> list:
-    """Run a full belt-diff sweep for each rubber attachment configuration."""
+    """Run a full split-belt sweep for each rubber attachment configuration."""
     results = []
     for slow_r, fast_r, label in RUBBER_PERMUTATIONS:
         cfg = {**config, 'slow_side_rubber': slow_r, 'fast_side_rubber': fast_r}
         print(f'\n── {label} ──')
         sim = SplitBeltSim(cfg)
         bdiffs, velocities = sim.run_sweep()
-        results.append({
-            'label':       label,
-            'slow_rubber': slow_r,
-            'fast_rubber': fast_r,
-            'bdiffs':      bdiffs,
-            'velocities':  velocities,
-        })
+        results.append({'label': label, 'slow_rubber': slow_r,
+                        'fast_rubber': fast_r, 'bdiffs': bdiffs,
+                        'velocities': velocities})
     return results
 
 
-def plot_permutations(results: list,
-                      exp_bdiffs, exp_velocities,
-                      save_dir=None,
-                      show: bool = True):
-    """
-    Saves one SVG per rubber configuration plus a combined 2×2 grid SVG,
-    all inside save_dir (if provided).
-    """
-    # --- individual panels ---
-    if save_dir:
-        for result in results:
-            fname = _label_to_filename(result['label'])
-            _plot_single(result, exp_bdiffs, exp_velocities,
-                         save_path=save_dir / fname, show=False)
-            plt.close()
-
-    # --- combined 2×2 grid ---
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharey=True,
-                             constrained_layout=True)
-    fig.suptitle('Rubber Configuration Comparison vs. Butterfield et al.',
-                 fontsize=14)
-
-    for ax, result in zip(axes.flat, results):
-        ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
-                   label='Butterfield et al.')
-        ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
-                   zorder=3, label='MuJoCo')
-        ax.set_title(result['label'])
-        ax.set_xlabel('Belt Speed Difference (m/s)')
-        ax.set_ylabel('Average Steady Velocity (m/s)')
-        ax.set_ylim(0, 0.4)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-
-    axes[0, 0].legend(fontsize=9)
-
-    if save_dir:
-        p = save_dir / 'all_rubber_configs.svg'
-        fig.savefig(p, format='svg')
-        print(f'  saved → {p}')
-
-    if show:
-        plt.show()
-
-    return fig, axes
-
-
 def run_offset_permutations(config: dict) -> list:
-    """Run a full belt-diff sweep for all 8 rubber × offset combinations."""
+    """Run a full split-belt sweep for all 8 rubber × offset combinations."""
     results = []
     for offset, offset_label in OFFSET_PERMUTATIONS:
         for slow_r, fast_r, rubber_label in RUBBER_PERMUTATIONS:
-            cfg = {
-                **config,
-                'slow_side_rubber':  slow_r,
-                'fast_side_rubber':  fast_r,
-                'fast_belt_zoffset': offset,
-            }
+            cfg = {**config, 'slow_side_rubber': slow_r,
+                   'fast_side_rubber': fast_r, 'fast_belt_zoffset': offset}
             label = f'{rubber_label} — {offset_label}'
             print(f'\n── {label} ──')
             sim = SplitBeltSim(cfg)
             bdiffs, velocities = sim.run_sweep()
-            results.append({
-                'label':        label,
-                'rubber_label': rubber_label,
-                'offset_label': offset_label,
-                'slow_rubber':  slow_r,
-                'fast_rubber':  fast_r,
-                'offset':       offset,
-                'bdiffs':       bdiffs,
-                'velocities':   velocities,
-            })
+            results.append({'label': label, 'rubber_label': rubber_label,
+                            'offset_label': offset_label, 'slow_rubber': slow_r,
+                            'fast_rubber': fast_r, 'offset': offset,
+                            'bdiffs': bdiffs, 'velocities': velocities})
     return results
-
-
-def plot_offset_permutations(results: list,
-                             exp_bdiffs, exp_velocities,
-                             save_dir=None,
-                             show: bool = True):
-    """
-    Saves one SVG per rubber × offset combination plus a combined 4×2 grid SVG,
-    all inside save_dir (if provided).
-    """
-    # --- individual panels ---
-    if save_dir:
-        for result in results:
-            fname = _label_to_filename(result['label'])
-            _plot_single(result, exp_bdiffs, exp_velocities,
-                         save_path=save_dir / fname, show=False)
-            plt.close()
-
-    # --- combined 4×2 grid ---
-    n_rubber = len(RUBBER_PERMUTATIONS)
-    n_offset = len(OFFSET_PERMUTATIONS)
-
-    fig, axes = plt.subplots(n_rubber, n_offset,
-                             figsize=(12, 16),
-                             sharey=True,
-                             constrained_layout=True)
-    fig.suptitle('Rubber × Offset Configuration Comparison vs. Butterfield et al.',
-                 fontsize=14)
-
-    for col, (_, offset_label) in enumerate(OFFSET_PERMUTATIONS):
-        axes[0, col].set_title(offset_label, fontsize=12, fontweight='bold', pad=10)
-
-    for result in results:
-        row = [r[2] for r in RUBBER_PERMUTATIONS].index(result['rubber_label'])
-        col = [o[1] for o in OFFSET_PERMUTATIONS].index(result['offset_label'])
-        ax  = axes[row, col]
-
-        ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
-                   label='Butterfield et al.')
-        ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
-                   zorder=3, label='MuJoCo')
-
-        if col == 0:
-            ax.set_ylabel(f"{result['rubber_label']}\n\nAvg Steady Velocity (m/s)",
-                          fontsize=9)
-        ax.set_xlabel('Belt Speed Difference (m/s)')
-        ax.set_ylim(0, 0.4)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-
-    axes[0, 0].legend(fontsize=9)
-
-    if save_dir:
-        p = save_dir / 'all_rubber_offset_configs.svg'
-        fig.savefig(p, format='svg')
-        print(f'  saved → {p}')
-
-    if show:
-        plt.show()
-
-    return fig, axes
 
 
 # ---------------------------------------------------------------------------
@@ -585,13 +348,29 @@ def main():
     config                = load_config()
     RUN_ALL_RUBBER        = config['run_all_rubber']
     RUN_OFFSET_COMPARISON = config['run_offset_comparison']
+    RUN_TIED_BELT         = config.get('run_tied_belt', False)
     SHOW_PLOT             = config['show_plot']
     timestamp             = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
 
     sim_base = SplitBeltSim(config)
     exp_bdiffs, exp_velocities = sim_base.load_experimental_data()
 
-    if RUN_OFFSET_COMPARISON:
+    if RUN_TIED_BELT:
+        save_dir = FIGURES_PATH / f'tied_belt_{timestamp}'
+        save_dir.mkdir(parents=True, exist_ok=True)
+        print(f'Saving plots to {save_dir}')
+
+        print('Running tied-belt sweep (both belts at equal speed)...')
+        speeds, velocities = sim_base.run_tied_sweep()
+
+        sim_base.save_sim_data(speeds, velocities,
+                               path=save_dir.parent.parent / 'data' / 'tied_belt_data.csv')
+
+        print('\nSaving plot...')
+        plot_tied_belt(speeds, velocities,
+                       save_path=save_dir / 'tied_belt.svg', show=SHOW_PLOT)
+
+    elif RUN_OFFSET_COMPARISON:
         save_dir = FIGURES_PATH / f'offset_comparison_{timestamp}'
         save_dir.mkdir(parents=True, exist_ok=True)
         print(f'Saving plots to {save_dir}')
@@ -601,16 +380,8 @@ def main():
 
         print('\nStatistical comparison per configuration:')
         for r in results:
-            s   = sim_base.get_stats(exp_velocities, r['velocities'],
-                                     exp_bdiffs, r['bdiffs'])
-            rs, tt = s['ranksums'], s['ttest_ind']
-            fit = s.get('fit', {})
-            print(f"  {r['label']:<38} "
-                  f"R²={fit.get('r2', float('nan')):.3f}  "
-                  f"RMSE={fit.get('rmse', float('nan')):.4f}  "
-                  f"MAE={fit.get('mae', float('nan')):.4f}  "
-                  f"ranksums p={rs['p_value']:.4f}  "
-                  f"ttest p={tt['p_value']:.4f}")
+            s = get_stats(exp_velocities, r['velocities'], exp_bdiffs, r['bdiffs'])
+            print_stats(r['label'], s)
 
         print('\nSaving plots...')
         plot_offset_permutations(results, exp_bdiffs, exp_velocities,
@@ -626,16 +397,8 @@ def main():
 
         print('\nStatistical comparison per configuration:')
         for r in results:
-            s   = sim_base.get_stats(exp_velocities, r['velocities'],
-                                     exp_bdiffs, r['bdiffs'])
-            rs, tt = s['ranksums'], s['ttest_ind']
-            fit = s.get('fit', {})
-            print(f"  {r['label']:<22} "
-                  f"R²={fit.get('r2', float('nan')):.3f}  "
-                  f"RMSE={fit.get('rmse', float('nan')):.4f}  "
-                  f"MAE={fit.get('mae', float('nan')):.4f}  "
-                  f"ranksums p={rs['p_value']:.4f}  "
-                  f"ttest p={tt['p_value']:.4f}")
+            s = get_stats(exp_velocities, r['velocities'], exp_bdiffs, r['bdiffs'])
+            print_stats(r['label'], s, width=22)
 
         print('\nSaving plots...')
         plot_permutations(results, exp_bdiffs, exp_velocities,
@@ -646,14 +409,14 @@ def main():
         save_dir.mkdir(parents=True, exist_ok=True)
         print(f'Saving plots to {save_dir}')
 
-        print('Running belt speed difference sweep...')
+        print('Running split-belt sweep...')
         bdiffs, velocities = sim_base.run_sweep()
 
         print('\nStatistical comparison (simulation vs. Butterfield experimental):')
-        s   = sim_base.get_stats(exp_velocities, velocities, exp_bdiffs, bdiffs)
+        s   = get_stats(exp_velocities, velocities, exp_bdiffs, bdiffs)
+        fit = s.get('fit', {})
         rs  = s['ranksums']
         tt  = s['ttest_ind']
-        fit = s.get('fit', {})
         print(f"  R²                : {fit.get('r2', float('nan')):.4f}  "
               f"(n={fit.get('n_points', '?')} overlapping points)")
         print(f"  RMSE              : {fit.get('rmse', float('nan')):.4f} m/s")
@@ -663,11 +426,9 @@ def main():
 
         sim_base.save_sim_data(bdiffs, velocities)
 
-        print('\nSaving plots...')
-        sim_base.plot_comparison(
-            bdiffs, velocities, exp_bdiffs, exp_velocities,
-            save_path=save_dir / 'validation.svg', show=SHOW_PLOT
-        )
+        print('\nSaving plot...')
+        plot_comparison(bdiffs, velocities, exp_bdiffs, exp_velocities,
+                        save_path=save_dir / 'validation.svg', show=SHOW_PLOT)
 
 
 if __name__ == '__main__':
