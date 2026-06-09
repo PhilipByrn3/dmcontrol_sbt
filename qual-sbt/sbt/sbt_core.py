@@ -17,7 +17,7 @@ Programmatic usage:
     from sbt_core import SplitBeltSim, load_config
     sim = SplitBeltSim(load_config())
     bdiffs, velocities = sim.run_sweep()
-    sim.plot_comparison(bdiffs, velocities, *sim.load_experimental_data())
+    sim.plot_comparison(bdiffs, velocities, sim.load_digitized_data())
 
 Interactive viewer:
     sim.launch_viewer()
@@ -44,10 +44,11 @@ from create_treadmill import AssembleTreadmill
 # Paths
 # ---------------------------------------------------------------------------
 
-CONFIG_PATH   = Path(__file__).with_name('config.yaml')
-EXP_DATA_PATH = Path(__file__).parent.parent / 'data' / 'digitized_experimental_sbt_data.csv'
-FIGURES_PATH  = Path(__file__).parent.parent / 'figures'
-SIM_DATA_PATH = Path(__file__).parent.parent / 'data' / 'sbt_data.csv'
+CONFIG_PATH         = Path(__file__).with_name('config.yaml')
+EXP_DATA_PATH       = Path(__file__).parent.parent / 'data' / 'digitized_experimental_sbt_data.csv'
+DIGITIZED_DATA_PATH = Path(__file__).parent.parent / 'data' / 'sbt_digitized_results.csv'
+FIGURES_PATH        = Path(__file__).parent.parent / 'figures'
+SIM_DATA_PATH       = Path(__file__).parent.parent / 'data' / 'sbt_data.csv'
 
 
 def load_config() -> dict:
@@ -111,7 +112,8 @@ class SplitBeltSim:
         simulate_trial(belt_diff)              → float (avg velocity)
         run_sweep()                            → (bdiffs, velocities)
         plot_comparison(...)                   → (fig, ax)
-        load_experimental_data()               → (bdiffs, velocities)
+        load_digitized_data()                  → dict of three reference datasets
+        load_experimental_data()               → (bdiffs, velocities)  [legacy]
         get_stats(exp_velocities, sim_velocities) → dict
         save_sim_data(bdiffs, velocities)
         launch_viewer()
@@ -148,7 +150,7 @@ class SplitBeltSim:
         AssembleTreadmill(model.worldbody, self.config)
 
         # Wheel
-        AssembleWheel(model.worldbody, self.config) ## NEEDS TO ALLOW FOR CHANGING RUBBER PLACEMENT
+        AssembleWheel(model.worldbody, self.config)
 
         # Axle position sensor (Y-component gives forward displacement)
         model.sensor.add(
@@ -251,16 +253,54 @@ class SplitBeltSim:
     # Data I/O
     # ------------------------------------------------------------------
 
+    def load_digitized_data(self, path=None) -> dict:
+        """
+        Load all three reference datasets from sbt_digitized_results.csv.
+
+        The CSV has a two-row header: first row = dataset names, second row = X/Y.
+        Columns (in order): original_simulation X/Y, experimental_data X/Y,
+        offset_simulation X/Y. Each dataset may have different numbers of valid
+        rows; NaN entries are dropped per dataset.
+
+        Returns:
+            dict with keys 'original_simulation', 'experimental_data',
+            'offset_simulation', each containing:
+                {'bdiffs': np.ndarray, 'velocities': np.ndarray}
+        """
+        p = Path(path) if path else DIGITIZED_DATA_PATH
+        df = pd.read_csv(p, skiprows=2,
+                         names=['orig_x', 'orig_y',
+                                'exp_x',  'exp_y',
+                                'offset_x', 'offset_y'])
+
+        def _clean(xcol, ycol):
+            mask = df[xcol].notna() & df[ycol].notna()
+            return (df.loc[mask, xcol].astype(float).values,
+                    df.loc[mask, ycol].astype(float).values)
+
+        orig_x,   orig_y   = _clean('orig_x',   'orig_y')
+        exp_x,    exp_y    = _clean('exp_x',     'exp_y')
+        offset_x, offset_y = _clean('offset_x', 'offset_y')
+
+        return {
+            'original_simulation': {'bdiffs': orig_x,   'velocities': orig_y},
+            'experimental_data':   {'bdiffs': exp_x,    'velocities': exp_y},
+            'offset_simulation':   {'bdiffs': offset_x, 'velocities': offset_y},
+        }
+
     def load_experimental_data(self, path=None) -> tuple:
         """
         Load Butterfield et al. (2022) digitized experimental data.
 
+        Legacy method — returns only the experimental_data series from the
+        digitized CSV. Prefer load_digitized_data() for new code.
+
         Returns:
             (exp_bdiffs, exp_velocities): numpy arrays
         """
-        p = Path(path) if path else EXP_DATA_PATH
-        df = pd.read_csv(p)
-        return df['exp_bdiff'].values, df['exp_avgvelo'].values
+        data = self.load_digitized_data(path)
+        d = data['experimental_data']
+        return d['bdiffs'], d['velocities']
 
     def save_sim_data(self, bdiffs, velocities, path=None):
         """Save simulation sweep results to CSV."""
@@ -352,18 +392,17 @@ class SplitBeltSim:
     # ------------------------------------------------------------------
 
     def plot_comparison(self, sim_bdiffs, sim_velocities,
-                        exp_bdiffs, exp_velocities,
+                        digitized_data: dict,
                         title: str = '',
                         save_path=None,
                         show: bool = True):
         """
-        Scatter plot of simulation results overlaid on Butterfield data.
+        Scatter plot of simulation results overlaid on all three reference datasets.
 
         Args:
             sim_bdiffs:      belt speed differences from run_sweep()
             sim_velocities:  corresponding simulated avg velocities
-            exp_bdiffs:      experimental belt speed differences
-            exp_velocities:  experimental avg velocities
+            digitized_data:  dict returned by load_digitized_data()
             title:           optional plot title
             save_path:       path to save figure (SVG or PDF); None = don't save
             show:            if True, call plt.show() after saving
@@ -373,16 +412,15 @@ class SplitBeltSim:
         """
         fig, ax = plt.subplots(figsize=(7, 5))
 
-        ax.scatter(exp_bdiffs, exp_velocities, s=12, color='red', zorder=3,
-                   label='Butterfield et al. (experimental)')
+        _plot_reference_data(ax, digitized_data)
         ax.scatter(sim_bdiffs, sim_velocities, s=12, color='blue', zorder=3,
                    label='MuJoCo simulation')
 
         ax.set_xlabel('Belt Speed Difference (m/s)', fontsize=13)
         ax.set_ylabel('Average Steady Velocity (m/s)', fontsize=13)
         ax.set_title(title or 'Simulation vs. Experimental Results')
-        ax.set_ylim(0, 4)
-        ax.legend()
+        ax.set_ylim(0, 0.4)
+        ax.legend(fontsize=9)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
@@ -404,6 +442,31 @@ class SplitBeltSim:
     def launch_viewer(self):
         """Launch the dm_control interactive 3-D viewer."""
         viewer.launch(self.env)
+
+
+# ---------------------------------------------------------------------------
+# Reference data plotting helper
+# ---------------------------------------------------------------------------
+
+# Consistent colours and labels for the three digitized reference datasets
+_REFERENCE_SERIES = [
+    ('experimental_data',   'red',    'Butterfield et al. (experimental)'),
+    ('original_simulation', 'green',  'Butterfield et al. (original sim)'),
+    ('offset_simulation',   'orange', 'Butterfield et al. (offset sim)'),
+]
+
+
+def _plot_reference_data(ax, digitized_data: dict):
+    """
+    Add the three reference scatter series to ax.
+    Only series present in digitized_data are plotted.
+    """
+    for key, color, label in _REFERENCE_SERIES:
+        if key not in digitized_data:
+            continue
+        d = digitized_data[key]
+        ax.scatter(d['bdiffs'], d['velocities'], s=10, color=color, zorder=3,
+                   label=label)
 
 
 # ---------------------------------------------------------------------------
@@ -462,7 +525,7 @@ def run_rubber_permutations(config: dict) -> list:
 
 
 def plot_permutations(results: list,
-                      exp_bdiffs, exp_velocities,
+                      digitized_data: dict,
                       save_path=None,
                       show: bool = True):
     """
@@ -471,8 +534,7 @@ def plot_permutations(results: list,
 
     Args:
         results:          output of run_rubber_permutations()
-        exp_bdiffs:       experimental belt speed differences (Butterfield)
-        exp_velocities:   experimental avg velocities
+        digitized_data:   dict returned by load_digitized_data()
         save_path:        path to save figure (SVG or PDF); None = don't save
         show:             if True, call plt.show() after saving
 
@@ -485,14 +547,13 @@ def plot_permutations(results: list,
                  fontsize=14)
 
     for ax, result in zip(axes.flat, results):
-        ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
-                   label='Butterfield et al.')
+        _plot_reference_data(ax, digitized_data)
         ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
                    zorder=3, label='MuJoCo')
         ax.set_title(result['label'])
         ax.set_xlabel('Belt Speed Difference (m/s)')
         ax.set_ylabel('Average Steady Velocity (m/s)')
-        ax.set_ylim(0, 4)
+        ax.set_ylim(0, 0.4)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
@@ -555,7 +616,7 @@ def run_offset_permutations(config: dict) -> list:
 
 
 def plot_offset_permutations(results: list,
-                             exp_bdiffs, exp_velocities,
+                             digitized_data: dict,
                              save_path=None,
                              show: bool = True):
     """
@@ -571,8 +632,7 @@ def plot_offset_permutations(results: list,
 
     Args:
         results:        output of run_offset_permutations()
-        exp_bdiffs:     experimental belt speed differences (Butterfield)
-        exp_velocities: experimental avg velocities
+        digitized_data: dict returned by load_digitized_data()
         save_path:      path to save figure (SVG or PDF); None = don't save
         show:           if True, call plt.show() after saving
 
@@ -598,8 +658,7 @@ def plot_offset_permutations(results: list,
         col = [o[1] for o in OFFSET_PERMUTATIONS].index(result['offset_label'])
         ax  = axes[row, col]
 
-        ax.scatter(exp_bdiffs, exp_velocities, s=10, color='red', zorder=3,
-                   label='Butterfield et al.')
+        _plot_reference_data(ax, digitized_data)
         ax.scatter(result['bdiffs'], result['velocities'], s=10, color='blue',
                    zorder=3, label='MuJoCo')
 
@@ -631,17 +690,18 @@ def plot_offset_permutations(results: list,
 # ---------------------------------------------------------------------------
 
 def main():
-    config        = load_config()
-    RUN_ALL_RUBBER = config['run_all_rubber']
-    SHOW_PLOT      = config['show_plot']
+    config             = load_config()
+    RUN_ALL_RUBBER     = config['run_all_rubber']
+    SHOW_PLOT          = config['show_plot']
+    RUN_OFFSET_COMPARISON = config['run_offset_comparison']
     FIGURES_PATH.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
 
-    # Load experimental ground truth once
-    sim_base = SplitBeltSim(config)
-    exp_bdiffs, exp_velocities = sim_base.load_experimental_data()
-
-    RUN_OFFSET_COMPARISON = config['run_offset_comparison']
+    # Load all three reference datasets once
+    sim_base      = SplitBeltSim(config)
+    digitized_data = sim_base.load_digitized_data()
+    exp_bdiffs     = digitized_data['experimental_data']['bdiffs']
+    exp_velocities = digitized_data['experimental_data']['velocities']
 
     if RUN_OFFSET_COMPARISON:
         print('Running sweep for all rubber × offset configurations (8 total)...')
@@ -661,7 +721,7 @@ def main():
                   f"ttest p={tt['p_value']:.4f}")
 
         save_path = FIGURES_PATH / f'all-figures_{timestamp}.svg'
-        plot_offset_permutations(results, exp_bdiffs, exp_velocities,
+        plot_offset_permutations(results, digitized_data,
                                  save_path=save_path, show=SHOW_PLOT)
 
     elif RUN_ALL_RUBBER:
@@ -682,7 +742,7 @@ def main():
                   f"ttest p={tt['p_value']:.4f}")
 
         save_path = FIGURES_PATH / f'all-figures_{timestamp}.svg'
-        plot_permutations(results, exp_bdiffs, exp_velocities,
+        plot_permutations(results, digitized_data,
                           save_path=save_path, show=SHOW_PLOT)
 
     else:
@@ -705,7 +765,7 @@ def main():
 
         save_path = FIGURES_PATH / f'validation_{timestamp}.svg'
         sim_base.plot_comparison(
-            bdiffs, velocities, exp_bdiffs, exp_velocities,
+            bdiffs, velocities, digitized_data,
             save_path=save_path, show=SHOW_PLOT
         )
 
