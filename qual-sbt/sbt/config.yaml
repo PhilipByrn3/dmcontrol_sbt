@@ -56,9 +56,10 @@ target_rotations: 12         # end trial early after this many full wheel rotati
 # --- Output options ----------------------------------------------------------
 # Priority: run_offset_comparison > run_all_rubber > single sweep
 run_offset_comparison: true # true  → 8-panel grid: all 4 rubber configs × 2 offsets
+run_tied_belt: false       # true  → tied-belt sweep: both belts at equal speed
 run_all_rubber: true         # true  → 4-panel grid: all rubber configs at current offset
                              # false → single sweep using slow/fast_side_rubber above
-show_plot: true              # true  → open plot window after saving
+show_plot: false              # true  → open plot window after saving
 
 # --- Solver / integrator -----------------------------------------------------
 # RK4 + PGS + Elliptic cone produced the best match to Butterfield data.
