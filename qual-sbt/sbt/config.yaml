@@ -30,8 +30,8 @@ smd_range: [0, 0.015] # spring mass damper
 smd_stiffness: 50
 smd_damping: 10
 
-slow_side_rubber: false
-fast_side_rubber: false
+slow_side_rubber: true
+fast_side_rubber: true
 
 # --- Belt parameters ---------------------------------------------------------
 slow_belt_xpos: -0.051      # m, x-position of slow (red) belt centre
@@ -56,7 +56,7 @@ target_rotations: 12         # end trial early after this many full wheel rotati
 # --- Output options ----------------------------------------------------------
 # Priority: run_offset_comparison > run_all_rubber > single sweep
 run_offset_comparison: true # true  → 8-panel grid: all 4 rubber configs × 2 offsets
-run_tied_belt: false       # true  → tied-belt sweep: both belts at equal speed
+run_tied_belt: true       # true  → tied-belt sweep: both belts at equal speed
 run_all_rubber: true         # true  → 4-panel grid: all rubber configs at current offset
                              # false → single sweep using slow/fast_side_rubber above
 show_plot: false              # true  → open plot window after saving
