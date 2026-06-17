@@ -141,15 +141,35 @@ def render_frames(config: dict,
     return fig, axes
 
 
+class _LiveBeltTask(SplitBeltTask):
+    """
+    SplitBeltTask with belt velocities driven from config on every step.
+    slow_belt_speed and render_belt_diff are read from config.yaml.
+    """
+    def __init__(self, config: dict):
+        super().__init__()
+        self._slow = float(config['slow_belt_speed'])
+        self._fast = self._slow + float(config.get('render_belt_diff', 0.5))
+
+    def before_step(self, action, physics):
+        physics.named.data.qvel[AssembleTreadmill.SLOW_JOINT] = 0.5
+        physics.named.data.qvel[AssembleTreadmill.FAST_JOINT] = 0.5
+
+
 def launch_interactive(config: dict):
     """
     Launch the dm_control interactive 3-D viewer.
+    Belt speeds are set each step from config (slow_belt_speed, render_belt_diff).
     Controls: left-drag to orbit, scroll to zoom, right-drag to pan.
     """
     model   = build_model_with_cameras(config)
     physics = mujoco.Physics.from_xml_string(model.to_xml_string())
-    task    = SplitBeltTask()
+    task    = _LiveBeltTask(config)
     env     = Environment(physics=physics, task=task)
+    fast    = task._fast
+    slow    = task._slow
+    print(f'Viewer  |  slow belt: {slow} m/s  |  fast belt: {fast} m/s  '
+          f'(Δv = {fast - slow:.3f} m/s)')
     viewer.launch(env)
 
 
