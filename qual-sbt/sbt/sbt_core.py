@@ -21,6 +21,7 @@ See also:
 """
 
 import math
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -164,11 +165,15 @@ class SplitBeltSim:
 
         self.physics.named.data.qvel[AssembleWheel.JOINT_Y] = fast_speed
 
-        time_list = []
-        pos_list  = []
+        time_list  = []
+        pos_list   = []
+        step_times = []
+        rotation_list = []
 
         for _ in range(max_steps):
+            t_start = time.perf_counter()
             self.physics.step()
+            step_times.append(time.perf_counter() - t_start)
 
             self.physics.named.data.qvel[AssembleTreadmill.SLOW_JOINT] = slow_speed
             self.physics.named.data.qvel[AssembleTreadmill.FAST_JOINT] = fast_speed
@@ -180,10 +185,12 @@ class SplitBeltSim:
 
             time_list.append(round(self.physics.data.time, 8))
             pos_list.append(float(self.physics.named.data.sensordata['axlepos'][1]))
-
+            rotation_list.append(rotation)
             if rotation >= target:
                 break
 
+        # Accumulate step times for sweep-level summary
+        self._sweep_step_times.extend(step_times)
         return pos_list[-1] / time_list[-1]
 
     # ------------------------------------------------------------------
@@ -249,6 +256,7 @@ class SplitBeltSim:
 
         xs         = []
         velocities = []
+        self._sweep_step_times = []  # reset for this sweep
         x = start
 
         while x <= end + 1e-9:
@@ -257,6 +265,11 @@ class SplitBeltSim:
             velocities.append(v)
             print(f'  {label}={xs[-1]:.3f} m/s  →  avg_vel={v:.4f} m/s')
             x = round(x + step, 6)
+
+        if self._sweep_step_times:
+            avg_ms = (sum(self._sweep_step_times) / len(self._sweep_step_times)) * 1000
+            print(f'  avg timestep across sweep: {avg_ms:.3f} ms  '
+                  f'({len(self._sweep_step_times)} total steps)')
 
         return np.array(xs), velocities
 
@@ -350,30 +363,38 @@ def main():
     RUN_OFFSET_COMPARISON = config['run_offset_comparison']
     RUN_TIED_BELT         = config.get('run_tied_belt', False)
     SHOW_PLOT             = config['show_plot']
+    SAVE_PLOTS            = config.get('save_plots', True)
     timestamp             = datetime.now().strftime('%Y-%m-%d__%H-%M-%S')
 
     sim_base = SplitBeltSim(config)
     exp_bdiffs, exp_velocities = sim_base.load_experimental_data()
 
     if RUN_TIED_BELT:
-        save_dir = FIGURES_PATH / f'tied_belt_{timestamp}'
-        save_dir.mkdir(parents=True, exist_ok=True)
-        print(f'Saving plots to {save_dir}')
+        if SAVE_PLOTS:
+            save_dir = FIGURES_PATH / f'tied_belt_{timestamp}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            print(f'Saving plots to {save_dir}')
+        else:
+            save_dir = None
 
         print('Running tied-belt sweep (both belts at equal speed)...')
         speeds, velocities = sim_base.run_tied_sweep()
 
-        sim_base.save_sim_data(speeds, velocities,
-                               path=save_dir.parent.parent / 'data' / 'tied_belt_data.csv')
-
-        print('\nSaving plot...')
+        if SAVE_PLOTS:
+            sim_base.save_sim_data(speeds, velocities,
+                                   path=save_dir.parent.parent / 'data' / 'tied_belt_data.csv')
+            print('\nSaving plot...')
         plot_tied_belt(speeds, velocities,
-                       save_path=save_dir / 'tied_belt.eps', show=SHOW_PLOT)
+                       save_path=save_dir / 'tied_belt.eps' if save_dir else None,
+                       show=SHOW_PLOT)
 
     elif RUN_OFFSET_COMPARISON:
-        save_dir = FIGURES_PATH / f'offset_comparison_{timestamp}'
-        save_dir.mkdir(parents=True, exist_ok=True)
-        print(f'Saving plots to {save_dir}')
+        if SAVE_PLOTS:
+            save_dir = FIGURES_PATH / f'offset_comparison_{timestamp}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            print(f'Saving plots to {save_dir}')
+        else:
+            save_dir = None
 
         print('Running sweep for all rubber × offset configurations (8 total)...')
         results = run_offset_permutations(config)
@@ -383,14 +404,18 @@ def main():
             s = get_stats(exp_velocities, r['velocities'], exp_bdiffs, r['bdiffs'])
             print_stats(r['label'], s)
 
-        print('\nSaving plots...')
+        if SAVE_PLOTS:
+            print('\nSaving plots...')
         plot_offset_permutations(results, exp_bdiffs, exp_velocities,
                                  save_dir=save_dir, show=SHOW_PLOT)
 
     elif RUN_ALL_RUBBER:
-        save_dir = FIGURES_PATH / f'rubber_comparison_{timestamp}'
-        save_dir.mkdir(parents=True, exist_ok=True)
-        print(f'Saving plots to {save_dir}')
+        if SAVE_PLOTS:
+            save_dir = FIGURES_PATH / f'rubber_comparison_{timestamp}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            print(f'Saving plots to {save_dir}')
+        else:
+            save_dir = None
 
         print('Running sweep for all rubber configurations...')
         results = run_rubber_permutations(config)
@@ -400,14 +425,18 @@ def main():
             s = get_stats(exp_velocities, r['velocities'], exp_bdiffs, r['bdiffs'])
             print_stats(r['label'], s, width=22)
 
-        print('\nSaving plots...')
+        if SAVE_PLOTS:
+            print('\nSaving plots...')
         plot_permutations(results, exp_bdiffs, exp_velocities,
                           save_dir=save_dir, show=SHOW_PLOT)
 
     else:
-        save_dir = FIGURES_PATH / f'single_sweep_{timestamp}'
-        save_dir.mkdir(parents=True, exist_ok=True)
-        print(f'Saving plots to {save_dir}')
+        if SAVE_PLOTS:
+            save_dir = FIGURES_PATH / f'single_sweep_{timestamp}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            print(f'Saving plots to {save_dir}')
+        else:
+            save_dir = None
 
         print('Running split-belt sweep...')
         bdiffs, velocities = sim_base.run_sweep()
@@ -424,11 +453,12 @@ def main():
         print(f"  Wilcoxon rank-sum : stat={rs['statistic']:+.4f},  p={rs['p_value']:.4f}")
         print(f"  Welch's t-test    : stat={tt['statistic']:+.4f},  p={tt['p_value']:.4f}")
 
-        sim_base.save_sim_data(bdiffs, velocities)
-
-        print('\nSaving plot...')
+        if SAVE_PLOTS:
+            sim_base.save_sim_data(bdiffs, velocities)
+            print('\nSaving plot...')
         plot_comparison(bdiffs, velocities, exp_bdiffs, exp_velocities,
-                        save_path=save_dir / 'validation.eps', show=SHOW_PLOT)
+                        save_path=save_dir / 'validation.eps' if save_dir else None,
+                        show=SHOW_PLOT)
 
 
 if __name__ == '__main__':
