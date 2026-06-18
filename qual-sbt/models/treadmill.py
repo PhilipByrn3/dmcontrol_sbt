@@ -2,6 +2,20 @@ from dm_control import mjcf
 import os
 
 class Treadmill:
+    """
+    Top-level treadmill assembly. Loads shared materials/skybox assets,
+    sets up scene lighting, and composes slow and fast Belt objects.
+
+    Class constants for joint name lookups:
+        Treadmill.SLOW_JOINT, Treadmill.FAST_JOINT
+
+    :param worldbody: MuJoCo worldbody to attach the treadmill to.
+    :param xpos: X offset of each belt from center. Slow belt is mirrored to -xpos. Default: 0.051.
+    :param belt_size: Box half-extents [x, y, z] of the belt geom. Default: [0.05, 100, 0.1].
+    :param zoffset: Vertical offset of the belt body. Default: 0.
+    :param belt_friction: MuJoCo friction params [slide, spin, roll]. Default: [1.15, 0.1, 0.1].
+    :param belt_mass: Mass of each belt geom in kg. Default: 3.0.
+    """
     SLOW_JOINT = 'slow_belt_conveyor'
     FAST_JOINT = 'fast_belt_conveyor'
     VALID_KEYS = {
@@ -11,7 +25,6 @@ class Treadmill:
         'belt_friction',
         'belt_mass'
     }
-
     def __init__(self, worldbody, **kwargs):
         invalid = set(kwargs) - self.VALID_KEYS
         if invalid:
@@ -51,6 +64,20 @@ class Treadmill:
 
 
 class Belt:
+    """
+    Top-level treadmill assembly. Loads shared materials/skybox assets,
+    sets up scene lighting, and composes slow and fast Belt objects.
+
+    Class constants for joint name lookups:
+        Treadmill.SLOW_JOINT, Treadmill.FAST_JOINT
+
+    :param worldbody: MuJoCo worldbody to attach the treadmill to.
+    :param xpos: X offset of each belt from center. Slow belt is mirrored to -xpos. Default: 0.051.
+    :param belt_size: Box half-extents [x, y, z] of the belt geom. Default: [0.05, 100, 0.1].
+    :param zoffset: Vertical offset of the belt body. Default: 0.
+    :param belt_friction: MuJoCo friction params [slide, spin, roll]. Default: [1.15, 0.1, 0.1].
+    :param belt_mass: Mass of each belt geom in kg. Default: 3.0.
+    """
     def __init__(self, worldbody, name, color, **kwargs):
         
         xpos = kwargs.get('xpos', 0.051)
