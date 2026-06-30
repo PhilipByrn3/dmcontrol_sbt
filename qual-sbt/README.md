@@ -1,8 +1,6 @@
-# Split-Belt Treadmill Rimless Wheel — MuJoCo Environment
+# SBTenv
 
-An open-source, experimentally validated split-belt treadmill environment built with [dm_control](https://github.com/google-deepmind/dm_control) and MuJoCo. The environment simulates a passive rimless wheel walking on a split-belt treadmill and is validated against the physical experimental results of Butterfield et al. (2022). It is designed for high-throughput simulation and is compatible with reinforcement learning frameworks.
-
-**Paper:** *An Experimentally Validated Split-Belt Treadmill Environment in MuJoCo* — Philip Byrne, Fairfield University
+SBTenv is an open-source, experimentally validated split-belt treadmill environment built with [dm_control](https://github.com/google-deepmind/dm_control) and MuJoCo. The environment simulates a passive rimless wheel walking on a split-belt treadmill and is validated against the physical experimental results of Butterfield et al. (2022). It is designed for high-throughput simulation and is compatible with reinforcement learning frameworks.
 
 **Repository:** https://github.com/PhilipByrn3/dmcontrol_sbt
 
@@ -280,13 +278,10 @@ physics.named.data.qvel[AssembleTreadmill.FAST_JOINT] = 0.5
 
 ## Visual Inspection
 
-`render.py` provides two inspection modes:
+`render.py` provides:
 
 ```bash
 cd qual-sbt/sbt
-
-# Static 4-camera grid saved to figures/
-python render.py --mode frames
 
 # Interactive 3-D viewer (orbit: left-drag, zoom: scroll, pan: right-drag)
 python render.py --mode viewer
