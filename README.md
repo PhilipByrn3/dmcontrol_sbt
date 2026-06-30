@@ -67,7 +67,7 @@ Python 3.9+ is required. It is strongly recommended to use a virtual environment
 git clone https://github.com/PhilipByrn3/dmcontrol_sbt.git
 cd dmcontrol_sbt/qual-sbt
 
-python -m venv venv
+python3.10 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
