@@ -55,12 +55,12 @@ target_rotations: 12        # end trial early after this many full wheel rotatio
 
 # --- Output options ----------------------------------------------------------
 # Priority: run_offset_comparison > run_all_rubber > single sweep
-run_offset_comparison: false # true  → 8-panel grid: all 4 rubber configs × 2 offsets
-run_tied_belt: true       # true  → tied-belt sweep: both belts at equal speed
-run_all_rubber: true         # true  → 4-panel grid: all rubber configs at current offset
+run_offset_comparison: true # true  → 8-panel grid: all 4 rubber configs × 2 offsets
+run_tied_belt: false       # true  → tied-belt sweep: both belts at equal speed
+run_all_rubber: false         # true  → 4-panel grid: all rubber configs at current offset
                              # false → single sweep using slow/fast_side_rubber above
-show_plot: false              # true  → open plot window after saving
-save_plots: false              # true  → save plot files to figures/; false → skip saving
+show_plot: true              # true  → open plot window after saving
+save_plots: true              # true  → save plot files to figures/; false → skip saving
 render_belt_diff: 0.5         # m/s, fast-belt speed used in render.py viewer mode
 
 # --- Solver / integrator -----------------------------------------------------
