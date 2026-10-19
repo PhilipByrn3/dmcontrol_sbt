@@ -1,94 +1,22 @@
-from SBTenv.models.treadmill import Treadmill
-from SBTenv.models.wheel import Wheel
-from SBTenv.tasks.sbwm_task import SBWMtask
-from dm_control import mujoco, mjcf, viewer
-from dm_control.rl.control import Environment
-from dm_control.suite.base import Task
+from SBTenv.utils.sbwm_simulation import SBWMSimulation
+from SBTenv.utils.stats import Stats
 import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-import argparse
-import shutil
-import subprocess
 
-class SBWMsim:
-    """
-    Split-belt rimless wheel validation against Butterfield et al. (2022).
+sim = SBWMSimulation()
+exp_bsd_array = np.array([0.170, 0.178, 0.190, 0.199, 0.220, 0.249, 0.268, 0.300, 0.319, 0.350,
+              0.369, 0.399, 0.419, 0.449, 0.470, 0.500, 0.519, 0.571, 0.550, 0.601,
+              0.620, 0.649, 0.670, 0.701, 0.721, 0.751, 0.772, 0.802, 0.821, 0.851,
+              0.872, 0.899, 0.921, 1.001])
+exp_v = np.array([0.110, 0.112, 0.123, 0.127, 0.146, 0.159, 0.171, 0.188, 0.188, 0.193,
+              0.195, 0.197, 0.200, 0.203, 0.201, 0.202, 0.202, 0.196, 0.204, 0.207,
+              0.202, 0.205, 0.198, 0.201, 0.195, 0.197, 0.188, 0.189, 0.187, 0.188,
+              0.179, 0.175, 0.174, 0.159])
+v = sim.sweep_episode(0, 0.15, 1.15, 0.05, custom_bsd_array=exp_bsd_array)
 
-    Belt speeds follow the Treadmill convention: positive = backward, so the
-    wheel walks forward (+Y) by harvesting energy from the fast belt.
+st = Stats()
+print('-= Stats =-')
+print('RMSE', st.rmse(v, exp_v))
+print('Bias', st.bias(v, exp_v))
+print('R2', st.r2(v, exp_v))
+print('Pearson Correlation: ', st.pearson_r(v, exp_v))
 
-    :param timestep: Physics timestep in seconds. Default: 0.001.
-    :param integrator: MuJoCo integrator. Default: 'implicitfast'.
-    :param wheel_kwargs: Overrides passed to Wheel.
-    :param treadmill_kwargs: Overrides passed to Treadmill.
-    """
-    def __init__(self, timestep=0.001, integrator='implicitfast',
-                    wheel_kwargs=None, treadmill_kwargs=None):
-            self._model = mjcf.RootElement(model='sbt_rimless_wheel')
-
-            self._model.compiler.autolimits = True
-            self._model.compiler.angle = 'degree'
-            self._model.option.gravity = [0, 0, -9.81]
-            self._model.option.timestep = timestep
-            self._model.option.integrator = integrator
-            self._model.option.solver = 'PGS'
-            self._model.option.cone = 'Elliptic'
-            self._model.option.iterations = 50
-
-            Wheel(self._model.worldbody, **(wheel_kwargs or {}))
-            Treadmill(self._model.worldbody,
-                    **{'belt_size': [0.05, 10, 0.1], **(treadmill_kwargs or {})})
-            self._model.sensor.add('framepos',
-                                name='axlepos',
-                                objtype='xbody',
-                                objname=Wheel.BODY_NAME
-                                )
-            # Side view from the fast-belt side that follows the wheel (walking
-            # direction +Y points right in the image).
-            self._model.find('body', Wheel.BODY_NAME).add(
-                'camera', name='side', mode='trackcom',
-                pos=[1.2, 0, 0], xyaxes=[0, 1, 0, 0, 0, 1])
-
-            self.timestep = timestep
-            self.time_limit = 20      # s, total trial duration
-            self.settle_time = 0.05      # s, discarded before measuring
-            self.min_rotations = 1    # fewer rotations while measuring = failed trial
-            self._sbt_task = SBWMtask()
-            self.sbt_physics = mujoco.Physics.from_xml_string(self._model.to_xml_string())
-            self.sbt_env = Environment(physics=self.sbt_physics, task=self._sbt_task)
-            
-    def _run_episode(self, slow_belt_speed: float, fast_belt_speed: float,
-                     callback=None) -> float:
-        """
-        Run one trial and return the average forward velocity over the
-        measurement window (after settle_time), or NaN if the wheel did not
-        walk (e.g. it stalled and was carried by a belt instead).
-
-        :param callback: Optional function called as callback(step_index)
-            after every physics step (used for recording video).
-        """
-        self._sbt_task.set_belt_speeds(slow_belt_speed, fast_belt_speed)
-        self.sbt_env.reset()
-        self.sbt_physics.named.data.qvel[Wheel.JOINT_Y] = fast_belt_speed
-
-        n_steps = int(round(self.time_limit / self.timestep))
-        n_settle = int(round(self.settle_time / self.timestep))
-        for i in range(n_steps):
-            if i == n_settle:
-                y0 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
-                hinge0 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
-                t0 = self.sbt_physics.data.time
-            self._sbt_task.before_step(None, self.sbt_physics)
-            self.sbt_physics.step()
-            if callback is not None:
-                callback(i)
-
-        y1 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
-        hinge1 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
-        rotations = -(hinge1 - hinge0) / (2 * np.pi)
-        return (y1 - y0) / (self.sbt_physics.data.time - t0)
-    
-if __name__ == '__main__':
-    s=SBWMsim()
-    print(s._run_episode(0,1))

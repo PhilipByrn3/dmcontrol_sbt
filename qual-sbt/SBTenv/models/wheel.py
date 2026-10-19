@@ -14,22 +14,22 @@ class Wheel:
     :param axle_length: Half-length of the axle cylinder in meters. Default: 0.038.
     :param wheel_height: Z height of the axle body above the ground. Default: 0.38.
     :param spoke_length: Length of each spoke capsule in meters. Default: 0.254.
-    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 13.5.
+    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 15.5.
     :param twobeta: Angular offset of the fast-side spoke cluster in degrees. Default: 4.5.
         Only twoalpha - twobeta matters: it is the angle between consecutive
         fast->slow spokes, i.e. the slow belt collision angle 2-beta, and
         angle_step minus it is the fast belt collision angle 2-alpha. The
-        defaults give 2-alpha = 31 deg and 2-beta = 9 deg, matching the
-        Butterfield et al. (2022) robot.
+        defaults give 2-alpha = 29 deg and 2-beta = 11 deg (values from
+        config.yaml).
     :param component_mass: Mass of each individual spoke geom in kg. Default: 0.095405.
     :param angle_step: Angular spacing between spokes in degrees. Default: 40.
-    :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [0.729, 0.239, 0.0096].
-    :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.684, 0.87, 0.0194].
-    :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.0521, 1.6].
-    :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.0209].
-    :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [-0.0047, 0.0078].
-    :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 152.
-    :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 68.5.
+    :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [1, 1, 0.1].
+    :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
+    :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
+    :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.017].
+    :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [0, 0.015].
+    :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
+    :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
     """
     JOINT_Z     = 'axleZAxis'
     JOINT_Y     = 'axleYAxis'
@@ -78,17 +78,17 @@ class SpokeSet:
     :param slow_rubber: Enable rubber tips on slow-side spokes. Default: True.
     :param axle_length: Half-length of the axle used to offset the cluster in meters. Default: 0.038.
     :param spoke_length: Length of each spoke capsule in meters. Default: 0.254.
-    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 13.5.
+    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 15.5.
     :param twobeta: Angular offset of the fast-side spoke cluster in degrees. Default: 4.5.
     :param component_mass: Mass of each individual spoke geom in kg. Default: 0.095405.
     :param angle_step: Angular spacing between spokes in degrees. Default: 40.
-    :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [0.729, 0.239, 0.0096].
-    :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.684, 0.87, 0.0194].
-    :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.0521, 1.6].
-    :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.0209].
-    :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [-0.0047, 0.0078].
-    :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 152.
-    :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 68.5.
+    :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [1, 1, 0.1].
+    :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
+    :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
+    :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.017].
+    :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [0, 0.015].
+    :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
+    :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
     """
 
     def __init__(self, axle_body, side: int, **kwargs):
@@ -96,17 +96,17 @@ class SpokeSet:
         slow_rubber = kwargs.get('slow_rubber', True)
         axle_length = kwargs.get('axle_length', 0.038)
         spoke_length = kwargs.get('spoke_length', 0.254)
-        twoalpha = kwargs.get('twoalpha', 13.5)
+        twoalpha = kwargs.get('twoalpha', 15.5)
         twobeta = kwargs.get('twobeta', 4.5)
         component_mass = kwargs.get('component_mass', 0.095405)
         angle_step = kwargs.get('angle_step', 40)
-        rubber_friction = kwargs.get('rubber_friction', [0.729, 0.239, 0.0096])
-        rubber_solimp = kwargs.get('rubber_solimp', [0.684, 0.87, 0.0194])
-        rubber_solref = kwargs.get('rubber_solref', [0.0521, 1.6])
-        rubber_size = kwargs.get('rubber_size', [0.0209])
-        smd_range = kwargs.get('smd_range', [-0.0047, 0.0078])
-        smd_stiffness = kwargs.get('smd_stiffness', 152)
-        smd_damping = kwargs.get('smd_damping', 68.5)
+        rubber_friction = kwargs.get('rubber_friction', [1, 1, 0.1])
+        rubber_solimp = kwargs.get('rubber_solimp', [0.8, 0.8, 0.01])
+        rubber_solref = kwargs.get('rubber_solref', [0.02, 1])
+        rubber_size = kwargs.get('rubber_size', [0.017])
+        smd_range = kwargs.get('smd_range', [0, 0.015])
+        smd_stiffness = kwargs.get('smd_stiffness', 50)
+        smd_damping = kwargs.get('smd_damping', 10)
         
         side_name      = 'slow' if side < 0 else 'fast'
         offset_angle = twoalpha if side_name == 'slow' else twobeta
