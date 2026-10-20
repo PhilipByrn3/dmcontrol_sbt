@@ -1,5 +1,6 @@
 import math
 
+from SBTenv.defaults.wheel import TRIAL
 from SBTenv.models.wheel import Wheel
 from SBTenv.tasks.sbt_task import SBTTask
 
@@ -21,8 +22,9 @@ class SBWMTask(SBTTask):
     :param min_rotations: Rotations during measurement for a valid trial. Default: 1.
     :param max_rotations: Rotations (from reset) that end the episode. Default: 12.
     """
-    def __init__(self, time_limit=20, settle_time=0.05, min_rotations=1,
-                 max_rotations=12, random=None):
+    def __init__(self, time_limit=TRIAL['time_limit'], settle_time=TRIAL['settle_time'],
+                 min_rotations=TRIAL['min_rotations'], max_rotations=TRIAL['max_rotations'],
+                 random=None):
         super().__init__(time_limit=time_limit, random=random)
         self.settle_time = settle_time
         self.min_rotations = min_rotations

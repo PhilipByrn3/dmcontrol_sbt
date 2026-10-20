@@ -173,7 +173,7 @@ The `validation/` directory is the final, production version of the code. It is 
 
 ### `config.yaml`
 
-Single source of truth for all physical and simulation parameters. Grouped into wheel parameters, belt parameters, simulation parameters, and solver settings. The default values are the validated configuration that best matches Butterfield experimental data (fast-side rubber + 4.9 mm belt offset).
+Single source of truth for all physical and simulation parameters. Grouped into wheel parameters, belt parameters, simulation parameters, and solver settings. (Superseded: the validated defaults now live in `SBTenv/defaults/` (`treadmill.py`, `wheel.py`); see "Validated Configuration" below.)
 
 ### `create_wheel.py`
 
@@ -248,11 +248,22 @@ MuJoCo itself is bundled with `dm_control` (no separate install needed).
 
 The most significant challenge encountered was the **"bouncing problem"**: at high belt speed differences, the fast-side spoke strikes the moving belt and bounces rather than maintaining contact. This reduces energy transfer from the belt to the wheel, distorts velocity measurements, and was also observed in the physical experiment.
 
-**Solution**: Rubber pad sphere geoms on fast-side spoke tips act as spring-mass dampers (`stiffness=1000, damping=10`), absorbing impact energy while maintaining contact.
+**Solution**: Rubber pad sphere geoms on the spoke tips act as spring-mass dampers, absorbing impact energy while maintaining contact.
 
-**Why fast-side only**: Rubber on both sides causes the wheel to gain energy monotonically (velocity keeps rising with Δv instead of peaking and falling), because the slow-side pads reduce energy dissipation on the stationary belt too much. The desired qualitative behavior — wheel gains energy from fast belt, dissipates some on slow belt at high Δv — requires the slow side to dissipate energy on impact.
+A 4.9 mm Z-offset of the fast belt was also explored as a way to reduce bouncing. It is **not** part of the validated configuration.
 
-**Alternative fix**: A 4.9 mm Z-offset of the fast belt (`[0.051, 0, 0.0049]`) changes the contact geometry and also reduces bouncing. Best quantitative match to Butterfield data comes from combining both (fast rubber + offset).
+## Validated Configuration
+
+The research results use **rubber tips on both spoke sides and no fast-belt offset**, 0.01 s timestep, RK4, PGS, Elliptic cone, on dm_control 1.0.22 / mujoco 3.2.2. These are the package defaults (`SBTenv/defaults/treadmill.py` and `SBTenv/defaults/wheel.py`) and must stay the defaults. With them, `SBTenv/validation/validation.py` must reproduce exactly:
+
+```
+RMSE 0.01391385495448577
+Bias -0.0038202663253913112
+R2 0.7374408430580734
+Pearson Correlation:  0.9228722047286865
+```
+
+`SBTenv/validation/check_reference.py` checks this. Earlier notes claiming "fast-side rubber + 4.9 mm offset" is the best match are outdated.
 
 ## Average Steady Velocity Calculation
 

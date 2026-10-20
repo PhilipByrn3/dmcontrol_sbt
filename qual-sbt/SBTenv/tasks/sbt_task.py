@@ -28,8 +28,7 @@ class SBTTask(Task):
 
     def max_steps(self, physics):
         """
-        Physics steps per episode: time_limit / timestep, plus one final
-        step (matches the original validation loop).
+        Physics steps per episode: time_limit / timestep.
         """
         if self.time_limit == float('inf'):
             return float('inf')

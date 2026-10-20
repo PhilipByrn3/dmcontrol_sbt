@@ -45,7 +45,9 @@ class SBTGymEnv(gym.Env):
         overridden in reset options. Default: 0.
     :param fast_belt_speed: Fast belt speed in m/s (also the wheel's initial
         push) for every episode, unless overridden in reset options. Default: 0.
-    :param render_mode: None or 'human'.
+    :param render_mode: None or 'rgb_array'. gym.make(..., render_mode='human')
+        also works: Gymnasium then shows the rgb_array frames in a window
+        (requires pygame).
     :param env_kwargs: Passed to rgb_array when env is not given.
     """
     metadata = {'render_modes': ['rgb_array']}

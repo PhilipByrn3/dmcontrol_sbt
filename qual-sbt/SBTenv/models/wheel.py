@@ -1,5 +1,7 @@
 from dm_control import mjcf
 
+from SBTenv.defaults.wheel import WHEEL
+
 class Wheel:
     """
     Top-level rimless wheel assembly. Validates config kwargs and
@@ -30,6 +32,8 @@ class Wheel:
     :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [0, 0.015].
     :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
     :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
+
+    Defaults come from SBTenv.defaults.wheel.WHEEL (the validated configuration).
     """
     JOINT_Z     = 'axleZAxis'
     JOINT_Y     = 'axleYAxis'
@@ -92,21 +96,21 @@ class SpokeSet:
     """
 
     def __init__(self, axle_body, side: int, **kwargs):
-        fast_rubber = kwargs.get('fast_rubber', True)
-        slow_rubber = kwargs.get('slow_rubber', True)
-        axle_length = kwargs.get('axle_length', 0.038)
-        spoke_length = kwargs.get('spoke_length', 0.254)
-        twoalpha = kwargs.get('twoalpha', 15.5)
-        twobeta = kwargs.get('twobeta', 4.5)
-        component_mass = kwargs.get('component_mass', 0.095405)
-        angle_step = kwargs.get('angle_step', 40)
-        rubber_friction = kwargs.get('rubber_friction', [1, 1, 0.1])
-        rubber_solimp = kwargs.get('rubber_solimp', [0.8, 0.8, 0.01])
-        rubber_solref = kwargs.get('rubber_solref', [0.02, 1])
-        rubber_size = kwargs.get('rubber_size', [0.017])
-        smd_range = kwargs.get('smd_range', [0, 0.015])
-        smd_stiffness = kwargs.get('smd_stiffness', 50)
-        smd_damping = kwargs.get('smd_damping', 10)
+        fast_rubber = kwargs.get('fast_rubber', WHEEL['fast_rubber'])
+        slow_rubber = kwargs.get('slow_rubber', WHEEL['slow_rubber'])
+        axle_length = kwargs.get('axle_length', WHEEL['axle_length'])
+        spoke_length = kwargs.get('spoke_length', WHEEL['spoke_length'])
+        twoalpha = kwargs.get('twoalpha', WHEEL['twoalpha'])
+        twobeta = kwargs.get('twobeta', WHEEL['twobeta'])
+        component_mass = kwargs.get('component_mass', WHEEL['component_mass'])
+        angle_step = kwargs.get('angle_step', WHEEL['angle_step'])
+        rubber_friction = kwargs.get('rubber_friction', WHEEL['rubber_friction'])
+        rubber_solimp = kwargs.get('rubber_solimp', WHEEL['rubber_solimp'])
+        rubber_solref = kwargs.get('rubber_solref', WHEEL['rubber_solref'])
+        rubber_size = kwargs.get('rubber_size', WHEEL['rubber_size'])
+        smd_range = kwargs.get('smd_range', WHEEL['smd_range'])
+        smd_stiffness = kwargs.get('smd_stiffness', WHEEL['smd_stiffness'])
+        smd_damping = kwargs.get('smd_damping', WHEEL['smd_damping'])
         
         side_name      = 'slow' if side < 0 else 'fast'
         offset_angle = twoalpha if side_name == 'slow' else twobeta
@@ -177,9 +181,9 @@ class Axle:
     """
     def __init__(self, worldbody, **kwargs):
         
-        axle_length = kwargs.get('axle_length', 0.038)
-        wheel_height = kwargs.get('wheel_height', 0.38)
-        component_mass = kwargs.get('component_mass', 0.095405)
+        axle_length = kwargs.get('axle_length', WHEEL['axle_length'])
+        wheel_height = kwargs.get('wheel_height', WHEEL['wheel_height'])
+        component_mass = kwargs.get('component_mass', WHEEL['component_mass'])
         
         self._body = worldbody.add(
             'body',

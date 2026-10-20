@@ -1,3 +1,5 @@
+from SBTenv.defaults.treadmill import SIMULATION
+from SBTenv.defaults.wheel import TRIAL
 from SBTenv.models.wheel import Wheel
 from SBTenv.envs.sbt_env import SBTenv
 from SBTenv.tasks.sbwm_task import SBWMTask
@@ -32,8 +34,10 @@ class SBWMenv(SBTenv):
     min_rotations = _task_attr('min_rotations')
     max_rotations = _task_attr('max_rotations')
 
-    def __init__(self, timestep=0.01, integrator='RK4', wheel_kwargs=None, treadmill_kwargs=None,
-                 time_limit=20, settle_time=0.05, min_rotations=1, max_rotations=12):
+    def __init__(self, timestep=SIMULATION['timestep'], integrator=SIMULATION['integrator'],
+                 wheel_kwargs=None, treadmill_kwargs=None,
+                 time_limit=TRIAL['time_limit'], settle_time=TRIAL['settle_time'],
+                 min_rotations=TRIAL['min_rotations'], max_rotations=TRIAL['max_rotations']):
         self._wheel_kwargs = wheel_kwargs or {}   # read by _add_models during super().__init__
         self._trial = dict(time_limit=time_limit, settle_time=settle_time,
                            min_rotations=min_rotations, max_rotations=max_rotations)
