@@ -11,9 +11,6 @@ class SBWMTask(SBTTask):
     def __init__(self):
             super().__init__()
 
-    def before_step(self, action, physics):
-        pass
-
     def get_observation(self, physics):
             return {
                 'axle_y_pos':    physics.named.data.sensordata['axlepos'][1].copy(),

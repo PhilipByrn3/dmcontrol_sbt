@@ -11,28 +11,30 @@ class SBWMSimulation(SBWMenv):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._sweep_step_times = []
 
     def run_episode(self, slow_speed: float, fast_speed: float) -> float:
+        self._sbt_task.set_belt_speeds(slow_speed, fast_speed)
         self.sbt_env.reset()
         self.sbt_physics.named.data.qvel[Wheel.JOINT_Y] = fast_speed
         n_steps = int(round(self.time_limit/self.timestep))
         n_settle = int(round(self.settle_time / self.timestep))
-        target    = self.max_rotations
-        for i in range(n_steps):
-            self.sbt_physics.named.data.qvel[Treadmill.SLOW_JOINT] = slow_speed
-            self.sbt_physics.named.data.qvel[Treadmill.FAST_JOINT] = fast_speed
+        target = self.max_rotations
+        for i in range(n_steps+1):
+            self._sbt_task.before_step(None, self.sbt_physics)
             if i == n_settle:
                 y0 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
                 hinge0 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
                 t0 = self.sbt_physics.data.time
+            rotations = -float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0]) / (2 * np.pi)
+            if rotations >= self.max_rotations:
+                break
             self.sbt_physics.step()
         
         y1 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
         hinge1 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
         rotations = -(hinge1 - hinge0) / (2 * np.pi)
         velocity = (y1 - y0) / (self.sbt_physics.data.time - t0)
-        print('BSD: ', round(fast_speed, 4), ' \tVelocity: ', round(velocity,4))
+        print('BSD: ', round(fast_speed, 4), ' \tVelocity: ', round(velocity,4), '\tRotations: ' , round(rotations,4), '\tTimesteps', i)
         return velocity
 
     def sweep_episode(self, slow_belt_speed: float, start_bsd: float, end_bsd: float, bsd_increment: float, custom_bsd_array = 0):
