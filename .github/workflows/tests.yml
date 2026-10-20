@@ -6,11 +6,15 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,5 +26,7 @@ jobs:
           pip install -r requirements.txt
           pip install -e . --no-deps
           pip install pytest
+      - name: Validation statistics on this platform
+        run: python -m sbtenv.validation.check_reference || true
       - name: Test
-        run: pytest -q
+        run: pytest -q -rs

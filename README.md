@@ -55,7 +55,7 @@ The full validation runs with
 python -m sbtenv.validation.validation
 ```
 
-and `python -m sbtenv.validation.check_reference` confirms the defaults still reproduce the published numbers exactly.
+and `python -m sbtenv.validation.check_reference` confirms the defaults still reproduce the published numbers. They match exactly on Apple-silicon Macs. Other platforms round floating point slightly differently, and since small differences grow over a trial, their statistics land close by rather than on the same digits.
 
 ## Change the model
 
