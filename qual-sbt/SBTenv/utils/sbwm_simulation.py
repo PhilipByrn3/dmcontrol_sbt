@@ -13,28 +13,20 @@ class SBWMSimulation(SBWMenv):
         super().__init__(*args, **kwargs)
 
     def run_episode(self, slow_speed: float, fast_speed: float) -> float:
+        """
+        Run one trial through the standard dm_control loop and return the
+        average forward velocity. The push, settle window, termination and
+        measurement are all handled by SBWMTask.
+        """
         self._sbt_task.set_belt_speeds(slow_speed, fast_speed)
-        self.sbt_env.reset()
-        self.sbt_physics.named.data.qvel[Wheel.JOINT_Y] = fast_speed
-        n_steps = int(round(self.time_limit/self.timestep))
-        n_settle = int(round(self.settle_time / self.timestep))
-        target = self.max_rotations
-        for i in range(n_steps+1):
-            self._sbt_task.before_step(None, self.sbt_physics)
-            if i == n_settle:
-                y0 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
-                hinge0 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
-                t0 = self.sbt_physics.data.time
-            rotations = -float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0]) / (2 * np.pi)
-            if rotations >= self.max_rotations:
-                break
-            self.sbt_physics.step()
-        
-        y1 = float(self.sbt_physics.named.data.sensordata['axlepos'][1])
-        hinge1 = float(self.sbt_physics.named.data.qpos[Wheel.JOINT_HINGE][0])
-        rotations = -(hinge1 - hinge0) / (2 * np.pi)
-        velocity = (y1 - y0) / (self.sbt_physics.data.time - t0)
-        print('BSD: ', round(fast_speed, 4), ' \tVelocity: ', round(velocity,4), '\tRotations: ' , round(rotations,4), '\tTimesteps', i)
+        timestep = self.sbt_env.reset()
+        action = np.zeros(self.sbt_env.action_spec().shape)
+        while not timestep.last():
+            timestep = self.sbt_env.step(action)
+
+        result = self._sbt_task.episode_result(self.sbt_physics)
+        velocity = result['avg_velocity']
+        print('BSD: ', round(fast_speed, 4), ' \tVelocity: ', round(velocity,4), '\tRotations: ' , round(result['rotations'],4), '\tTimesteps', result['steps'])
         return velocity
 
     def sweep_episode(self, slow_belt_speed: float, start_bsd: float, end_bsd: float, bsd_increment: float, custom_bsd_array = 0):
