@@ -23,9 +23,9 @@ jobs:
           cache: pip
       - name: Install (exact research versions)
         run: |
-          pip install -r requirements.txt
-          pip install -e . --no-deps
-          pip install pytest
+          python -m pip install -r requirements.txt
+          python -m pip install -e . --no-deps
+          python -m pip install pytest
       - name: Validation statistics on this platform
         run: python -m sbtenv.validation.check_reference || true
       - name: Test
