@@ -1,4 +1,4 @@
-from SBTenv.models.treadmill import Treadmill
+from sbtenv.models.treadmill import Treadmill
 from dm_control.suite.base import Task
 
 class SBTTask(Task):

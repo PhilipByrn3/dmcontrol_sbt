@@ -1,328 +1,158 @@
-# SBTenv
+# sbtenv
 
-SBTenv is an open-source, experimentally validated split-belt treadmill environment built with [dm_control](https://github.com/google-deepmind/dm_control) and MuJoCo. The environment simulates a passive rimless wheel walking on a split-belt treadmill and is validated against the physical experimental results of Butterfield et al. (2022). It is designed for high-throughput simulation and is compatible with reinforcement learning frameworks.
+A split-belt treadmill environment for MuJoCo and dm_control. It comes with a passive rimless wheel that reproduces the experimental results of Butterfield et al. (2022), and a Gymnasium interface so you can put your own walker on the treadmill.
 
-**Repository:** https://github.com/PhilipByrn3/dmcontrol_sbt
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Repository Layout](#repository-layout)
-3. [Installation](#installation)
-4. [Quick Start](#quick-start)
-5. [Configuration](#configuration)
-6. [Simulation Modes](#simulation-modes)
-7. [Programmatic Usage](#programmatic-usage)
-8. [Visual Inspection](#visual-inspection)
-9. [Output Files](#output-files)
-10. [Physics Model](#physics-model)
-
----
-
-## Overview
-
-The environment places a rimless wheel — a canonical model of passive bipedal locomotion — on a split-belt treadmill where the two belts can run at different speeds. By sweeping the belt speed difference and recording the wheel's average steady-state velocity, the simulation reproduces the characteristic velocity curve measured physically by Butterfield et al. (2022).
-
-Key features:
-
-- Config-driven: all physical and simulation parameters live in a single `config.yaml`
-- Four rubber contact configurations and two belt offset conditions are sweep-testable out of the box
-- Tied-belt mode runs both belts at equal speed for symmetric baseline comparison
-- Outputs per-trial EPS plots and a combined grid plot, organised into timestamped folders
-- `dm_control` `Environment` / `Task` interface makes the environment drop-in compatible with RL frameworks
-
----
-
-## Repository Layout
-
-```
-qual-sbt/
-├── requirements.txt
-├── data/
-│   ├── Experimental.csv              # Digitized Butterfield et al. (2022) data
-│   └── sbt_data.csv                  # Last simulation run output (gitignored)
-├── figures/                          # Saved plots (gitignored)
-├── resources/
-│   ├── writeup.md                    # IEEE paper draft
-│   └── butterfield-et-al-2022-...pdf # Reference paper
-└── sbt/                              # Active codebase
-    ├── config.yaml                   # All parameters — edit this
-    ├── sbt_core.py                   # Simulation classes and entry point
-    ├── analysis.py                   # Statistical comparison functions
-    ├── plotting.py                   # All plotting functions
-    ├── create_wheel.py               # Rimless wheel model builder
-    ├── create_treadmill.py           # Split-belt treadmill model builder
-    └── render.py                     # Visual inspection (frames or interactive viewer)
-```
-
----
-
-## Installation
-
-Python 3.9+ is required. It is strongly recommended to use a virtual environment.
+## Install
 
 ```bash
 git clone https://github.com/PhilipByrn3/dmcontrol_sbt.git
-cd dmcontrol_sbt/qual-sbt
-
-python3.10 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
+cd dmcontrol_sbt
+pip install -e .
 ```
 
-MuJoCo is bundled with `dm_control` — no separate MuJoCo installation is needed.
+Python 3.10–3.12. The package pins `dm_control==1.0.22` and `mujoco==3.2.2`, the versions the validation results were produced with; other MuJoCo versions give slightly different velocities. For the exact research environment, use `pip install -r requirements.txt`.
 
----
+## Run a trial
 
-## Quick Start
+Each trial gives the wheel a push, lets it walk on the treadmill, and returns its average forward velocity in m/s.
+
+```python
+from sbtenv.utils.sbwm_simulation import SBWMSimulation
+
+sim = SBWMSimulation()
+v = sim.run_episode(slow_speed=0.0, fast_speed=0.6)
+```
+
+A trial ends when the wheel has turned 12 times or after 20 seconds. If the wheel makes less than one full rotation (it stalled, or the belts carried it), the trial is invalid and returns `nan`.
+
+## Sweep belt speeds
+
+```python
+bsd, v = sim.sweep_episode(0.0, start_bsd=0.15, end_bsd=1.0, bsd_increment=0.05)
+```
+
+`bsd` holds the belt speed differences that were run, and `v` the velocity for each. You can also pass your own speeds:
+
+```python
+bsd, v = sim.sweep_episode(0.0, custom_bsd_array=[0.2, 0.4, 0.8])
+```
+
+## Compare with the experiment
+
+```python
+from sbtenv.utils.data import load_experimental
+from sbtenv.utils import stats
+
+exp_bsd, exp_v = load_experimental()
+_, v = sim.sweep_episode(0.0, custom_bsd_array=exp_bsd)
+
+print(stats.rmse(v, exp_v), stats.r2(v, exp_v))
+```
+
+The full validation runs with
 
 ```bash
-cd qual-sbt/sbt
-python sbt_core.py
+python -m sbtenv.validation.validation
 ```
 
-This runs the simulation mode configured in `config.yaml`, prints per-trial progress and statistics to stdout, and saves EPS plots to a timestamped folder inside `figures/`.
+and `python -m sbtenv.validation.check_reference` confirms the defaults still reproduce the published numbers exactly.
 
----
+## Change the model
 
-## Configuration
-
-All parameters are set in `sbt/config.yaml`. You should never need to edit the Python source files to change simulation behaviour.
-
-### Wheel Parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| `axle_length` | `0.038` | Half-length of axle cylinder (m) |
-| `twoalpha` | `15.5` | Angular offset of slow-side spoke cluster (deg) |
-| `twobeta` | `4.5` | Angular offset of fast-side spoke cluster (deg) |
-| `spoke_length` | `0.254` | Spoke length (m) |
-| `spoke_angle_step` | `40` | Angular spacing between consecutive spokes (deg) — 9 spokes per side |
-| `component_mass` | `0.095405` | Mass per spoke / spoke-addition component (kg) |
-| `wheel_height` | `0.38` | Initial axle height above ground (m) |
-
-### Rubber Contact Parameters
-
-Rubber pads are modelled as spring-mass-damper spheres at the tip of each spoke.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `slow_side_rubber` | `true` | Attach rubber pads to slow-side spokes |
-| `fast_side_rubber` | `true` | Attach rubber pads to fast-side spokes |
-| `rubber_size` | `[0.017]` | Sphere radius (m) |
-| `rubber_friction` | `[1, 1, 0.1]` | Sliding, torsional, rolling friction |
-| `smd_stiffness` | `50` | Spring stiffness |
-| `smd_damping` | `10` | Damping coefficient |
-| `smd_range` | `[0, 0.015]` | Slide joint range (m) |
-
-### Belt Parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| `slow_belt_xpos` | `-0.051` | X-position of slow (red) belt (m) |
-| `fast_belt_xpos` | `0.051` | X-position of fast (blue) belt (m) |
-| `fast_belt_zoffset` | `0.0049` | Z-offset of fast belt above slow belt (m). Set to `0.0` for coplanar. |
-| `belt_friction` | `[1.15, 0.1, 0.1]` | Sliding, torsional, rolling friction |
-| `belt_mass` | `3.0` | Belt mass (kg) |
-
-### Simulation Parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| `slow_belt_speed` | `0.0` | Slow belt speed — always stationary (m/s) |
-| `starting_belt_diff` | `0.15` | Sweep start value (m/s) |
-| `max_belt_diff` | `1.1` | Sweep end value (m/s) |
-| `belt_diff_increment` | `0.05` | Sweep step size (m/s) |
-| `max_timesteps` | `2000` | Per-trial timestep cap (20 s at 0.01 s/step) |
-| `target_rotations` | `12` | End trial early after this many full wheel rotations |
-
-### Output Options
-
-| Parameter | Default | Description |
-|---|---|---|
-| `run_offset_comparison` | `true` | Run all 8 rubber × offset configurations |
-| `run_tied_belt` | `true` | Run tied-belt sweep (both belts at equal speed) |
-| `run_all_rubber` | `true` | Run all 4 rubber configurations |
-| `show_plot` | `false` | Open plot window after saving |
-
-**Priority order:** `run_offset_comparison` → `run_tied_belt` → `run_all_rubber` → single sweep. Only the first `true` mode runs.
-
-### Solver / Integrator
-
-| Parameter | Default | Description |
-|---|---|---|
-| `timestep` | `0.01` | Simulation timestep (s) |
-| `integrator` | `RK4` | Numerical integrator |
-| `solver` | `PGS` | Constraint solver |
-| `cone` | `Elliptic` | Contact friction cone |
-| `iterations` | `50` | Maximum solver iterations |
-
-These settings produced the best match to experimental data. Change with caution.
-
----
-
-## Simulation Modes
-
-### Single Split-Belt Sweep
-
-Set all mode flags to `false` in `config.yaml`. Runs one sweep with the rubber configuration specified by `slow_side_rubber` and `fast_side_rubber`. Outputs one plot and prints R², RMSE, MAE, and p-values.
-
-```yaml
-run_offset_comparison: false
-run_tied_belt: false
-run_all_rubber: false
-```
-
-### All Rubber Configurations
-
-Runs four sweeps (no rubber / fast only / slow only / both), saves individual EPS per config plus a combined 2×2 grid.
-
-```yaml
-run_offset_comparison: false
-run_tied_belt: false
-run_all_rubber: true
-```
-
-### Rubber × Offset Comparison
-
-Runs all 8 combinations (4 rubber configs × 2 offset conditions). Saves 8 individual EPS files plus a combined 4×2 grid.
-
-```yaml
-run_offset_comparison: true
-```
-
-### Tied-Belt Sweep
-
-Both belts run at the same speed (no split). The sweep range reuses `starting_belt_diff` → `max_belt_diff`. Useful as a symmetric baseline.
-
-```yaml
-run_offset_comparison: false
-run_tied_belt: true
-```
-
----
-
-## Programmatic Usage
-
-### Basic sweep
+The defaults are the validated configuration: rubber tips on both sides of the wheel, level belts, a 0.01 s timestep and RK4. They are listed in `sbtenv/defaults/`. Anything can be overridden:
 
 ```python
-from sbt_core import SplitBeltSim, load_config
-from analysis import get_stats
-from plotting import plot_comparison
-
-config = load_config()
-sim = SplitBeltSim(config)
-
-# Split-belt sweep
-bdiffs, velocities = sim.run_sweep()
-
-# Tied-belt sweep
-speeds, tied_velocities = sim.run_tied_sweep()
-
-# Load experimental data
-exp_bdiffs, exp_velocities = sim.load_experimental_data()
-
-# Statistical comparison
-s = get_stats(exp_velocities, velocities, exp_bdiffs, bdiffs)
-print(s['fit'])   # {'r2': ..., 'rmse': ..., 'mae': ..., 'n_points': ...}
-
-# Plot
-plot_comparison(bdiffs, velocities, exp_bdiffs, exp_velocities,
-                save_path='my_plot.eps', show=True)
+sim = SBWMSimulation(
+    timestep=0.005,
+    wheel_kwargs={'fast_rubber': False, 'spoke_length': 0.3},
+    treadmill_kwargs={'fast_zoffset': 0.0049},   # raise the fast belt 4.9 mm
+    max_rotations=6,
+)
 ```
 
-### Run a single trial
+## Use it with Gymnasium
 
 ```python
-avg_velocity = sim.simulate_trial(belt_diff=0.5)       # split-belt
-avg_velocity = sim.simulate_trial_tied(belt_speed=0.5) # tied-belt
+import gymnasium as gym
+import sbtenv
+
+env = gym.make('sbtenv/RimlessWheel-v0', fast_belt_speed=0.6)
+obs, info = env.reset()
+
+while True:
+    obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
+    if terminated or truncated:
+        break
+
+print(info['avg_velocity'])
 ```
 
-### Override config parameters on the fly
+Belt speeds belong to the environment, not the agent. Set them when you create it, as above, or per episode:
 
 ```python
-cfg = {**load_config(), 'slow_side_rubber': False, 'fast_side_rubber': True}
-sim = SplitBeltSim(cfg)
+obs, info = env.reset(options={'slow_belt_speed': 0.0, 'fast_belt_speed': 0.8})
 ```
 
-### RL framework integration
+The rimless wheel is passive, so its action space is empty. `terminated` means the wheel finished its rotations, `truncated` means time ran out, and the final step's `info` holds `avg_velocity`, `rotations`, `valid` and `steps`. Pass `render_mode='rgb_array'` to get frames from `env.render()`.
 
-`SplitBeltSim` exposes a standard `dm_control` `Environment`:
+## Put your own walker on the treadmill
+
+Subclass `SBTenv` to add your model, and `SBTTask` to define what an episode means. The treadmill, belt driving and time limit are already handled.
 
 ```python
-sim = SplitBeltSim(load_config())
-env = sim.env          # dm_control.rl.control.Environment
-physics = sim.physics  # dm_control.mujoco.Physics
+from sbtenv.envs.sbt_env import SBTenv
+from sbtenv.tasks.sbt_task import SBTTask
+from sbtenv.models.wheel import Wheel
 
-timestep = env.reset()
-obs = timestep.observation
-# {'axle_y_pos', 'axle_z_pos', 'axle_velocity', 'axle_rotation'}
+class StayCentred(SBTTask):
+    def get_observation(self, physics):
+        return {'qpos': physics.data.qpos.copy(), 'qvel': physics.data.qvel.copy()}
 
-action = None  # no actuators; belt speeds are set directly
-timestep = env.step(action)
+    def get_reward(self, physics):
+        return -abs(physics.named.data.qpos['axleYAxis'][0])   # stay near y = 0
+
+class MotorWheelEnv(SBTenv):
+    def _add_models(self):
+        Wheel(self._model.worldbody)
+        self._model.actuator.add('motor', joint='axleHinge', ctrlrange=[-1, 1], gear=[0.5])
+
+    def _make_task(self):
+        return StayCentred(time_limit=10)
 ```
 
-Belt speeds can be set directly at any point:
+Run it with dm_control:
 
 ```python
-from create_treadmill import AssembleTreadmill
-physics.named.data.qvel[AssembleTreadmill.SLOW_JOINT] = 0.0
-physics.named.data.qvel[AssembleTreadmill.FAST_JOINT] = 0.5
+import numpy as np
+
+env = MotorWheelEnv()
+env.set_belt_speeds(0.0, 0.6)
+
+timestep = env.dm_env.reset()
+while not timestep.last():
+    timestep = env.dm_env.step(np.array([0.2]))
 ```
 
----
+Or hand it to Gymnasium, which builds the action space from your actuators:
 
-## Visual Inspection
+```python
+env = gym.make('sbtenv/RimlessWheel-v0', env=MotorWheelEnv(), fast_belt_speed=0.6)
+print(env.action_space)   # Box(-1.0, 1.0, (1,), float64)
+```
 
-`render.py` provides:
+## Conventions
+
+- Belt speeds are in m/s, applied to each belt as its velocity along +Y before every physics step.
+- The wheel walks toward +Y, and its forward rotation makes the hinge angle negative.
+- `env.physics`, `env.task` and `env.dm_env` give you the underlying dm_control objects.
+
+## Tests
 
 ```bash
-cd qual-sbt/sbt
-
-# Interactive 3-D viewer (orbit: left-drag, zoom: scroll, pan: right-drag)
-python render.py --mode viewer
+pip install -e ".[dev]"
+pytest
 ```
 
-The default mode can also be changed by editing the `MODE` constant at the top of `render.py`.
+## License
 
----
-
-## Output Files
-
-Each run creates a timestamped folder inside `figures/`:
-
-```
-figures/
-└── rubber_comparison_2026-06-12__14-30-00/
-    ├── no_rubber.eps
-    ├── fast_rubber_only.eps
-    ├── slow_rubber_only.eps
-    ├── both_rubber.eps
-    └── all_rubber_configs.eps       # combined grid
-```
-
-Simulation data is saved to `data/sbt_data.csv` (single sweep mode only).
-
----
-
-## Physics Model
-
-### Rimless Wheel
-
-The rimless wheel has two sets of 9 spokes (one per belt), connected by a central axle. The axle has three degrees of freedom: vertical slide (`axleZAxis`), forward slide (`axleYAxis`), and rotation about the axle axis (`axleHinge`). Lateral and roll motion are constrained, matching the physical apparatus.
-
-### Split-Belt Treadmill
-
-Two belt bodies, each with a prismatic slide joint along the Y-axis. Belt motion is kinematically imposed by writing directly to `qvel` each timestep — the joint range is near-zero so the belt does not translate in space, matching how a real treadmill belt circulates around its drive wheels.
-
-### Contact Model
-
-Rubber pads are modelled as sphere geoms at spoke tips, connected to the spoke body via a slide joint configured as a spring-mass damper. This absorbs impact energy at high belt speed differences, reducing the bouncing that occurs when a spoke strikes a fast-moving belt.
-
-### Solver
-
-RK4 integration with PGS solver and elliptic friction cone. This combination produced the best quantitative agreement with Butterfield et al. experimental data across all tested configurations.
+Apache 2.0. The experimental data is digitized from Butterfield et al. (2022), *The split-belt rimless wheel*.

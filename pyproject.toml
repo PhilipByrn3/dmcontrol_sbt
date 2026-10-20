@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sbtenv"
+version = "0.1.0"
+description = "A validated split-belt treadmill environment for MuJoCo / dm_control, with a Gymnasium interface."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Philip Byrne" }]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "dm_control==1.0.22",   # pinned: the validated results depend on these versions
+    "mujoco==3.2.2",
+    "numpy",
+    "gymnasium",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/PhilipByrn3/dmcontrol_sbt"
+
+[tool.setuptools.packages.find]
+include = ["sbtenv*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+sbtenv = ["data/*.csv", "models/common/*.xml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

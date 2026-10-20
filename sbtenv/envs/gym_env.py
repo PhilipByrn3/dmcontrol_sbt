@@ -2,9 +2,9 @@
 Gymnasium wrapper for the split-belt treadmill environments.
 
     import gymnasium as gym
-    import SBTenv
+    import sbtenv
 
-    env = gym.make('SBTenv/RimlessWheel-v0', fast_belt_speed=0.6)
+    env = gym.make('sbtenv/RimlessWheel-v0', fast_belt_speed=0.6)
     obs, info = env.reset()
     while True:
         obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
@@ -16,7 +16,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from SBTenv.envs.sbwm_env import SBWMenv
+from sbtenv.envs.sbwm_env import SBWMenv
 
 
 class SBTGymEnv(gym.Env):

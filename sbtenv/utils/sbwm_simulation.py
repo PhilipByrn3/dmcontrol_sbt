@@ -1,5 +1,5 @@
 import numpy as np
-from SBTenv.envs.sbwm_env import SBWMenv
+from sbtenv.envs.sbwm_env import SBWMenv
 
 
 class SBWMSimulation(SBWMenv):

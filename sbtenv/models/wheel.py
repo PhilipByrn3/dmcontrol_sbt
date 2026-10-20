@@ -1,6 +1,6 @@
 from dm_control import mjcf
 
-from SBTenv.defaults.wheel import WHEEL
+from sbtenv.defaults.wheel import WHEEL
 
 class Wheel:
     """
@@ -33,7 +33,7 @@ class Wheel:
     :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
     :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
 
-    Defaults come from SBTenv.defaults.wheel.WHEEL (the validated configuration).
+    Defaults come from sbtenv.defaults.wheel.WHEEL (the validated configuration).
     """
     JOINT_Z     = 'axleZAxis'
     JOINT_Y     = 'axleYAxis'

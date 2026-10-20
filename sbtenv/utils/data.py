@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-EXPERIMENTAL_CSV = Path(__file__).resolve().parents[2] / 'data' / 'Experimental.csv'
+EXPERIMENTAL_CSV = Path(__file__).resolve().parents[1] / 'data' / 'Experimental.csv'
 
 
 def load_experimental(path=EXPERIMENTAL_CSV):

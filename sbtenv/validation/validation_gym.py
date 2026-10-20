@@ -1,12 +1,12 @@
 import gymnasium as gym
 import numpy as np
-import SBTenv                                   # registers 'SBTenv/RimlessWheel-v0'
-from SBTenv.utils.data import load_experimental
-from SBTenv.utils import stats
+import sbtenv                                   # registers 'sbtenv/RimlessWheel-v0'
+from sbtenv.utils.data import load_experimental
+from sbtenv.utils import stats
 
 exp_bsd_array, exp_v = load_experimental()
 
-env = gym.make('SBTenv/RimlessWheel-v0')
+env = gym.make('sbtenv/RimlessWheel-v0')
 v = np.empty_like(exp_bsd_array)
 for i, bsd in enumerate(exp_bsd_array):
     obs, info = env.reset(options={'slow_belt_speed': 0.0, 'fast_belt_speed': bsd})

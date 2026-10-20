@@ -1,6 +1,6 @@
-from SBTenv.defaults.treadmill import SIMULATION
-from SBTenv.models.treadmill import Treadmill
-from SBTenv.tasks.sbt_task import SBTTask
+from sbtenv.defaults.treadmill import SIMULATION
+from sbtenv.models.treadmill import Treadmill
+from sbtenv.tasks.sbt_task import SBTTask
 from dm_control import mujoco, mjcf
 from dm_control.rl.control import Environment
 
@@ -24,7 +24,7 @@ class SBTenv:
     :param integrator: MuJoCo integrator. Default: 'RK4'.
     :param treadmill_kwargs: Overrides passed to Treadmill.
 
-    Defaults come from SBTenv.defaults.treadmill (the validated configuration).
+    Defaults come from sbtenv.defaults.treadmill (the validated configuration).
     """
     def __init__(self, timestep=SIMULATION['timestep'], integrator=SIMULATION['integrator'],
                  treadmill_kwargs=None):

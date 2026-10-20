@@ -1,7 +1,7 @@
 from dm_control import mjcf
 import os
 
-from SBTenv.defaults.treadmill import TREADMILL
+from sbtenv.defaults.treadmill import TREADMILL
 
 class Treadmill:
     """
@@ -19,7 +19,7 @@ class Treadmill:
     :param belt_friction: MuJoCo friction params [slide, spin, roll]. Default: [1.15, 0.1, 0.1].
     :param belt_mass: Mass of each belt geom in kg. Default: 3.0.
 
-    Defaults come from SBTenv.defaults.treadmill.TREADMILL (the validated configuration).
+    Defaults come from sbtenv.defaults.treadmill.TREADMILL (the validated configuration).
     """
     SLOW_JOINT = 'slow_belt_conveyor'
     FAST_JOINT = 'fast_belt_conveyor'

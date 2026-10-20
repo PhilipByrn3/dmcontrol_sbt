@@ -1,8 +1,8 @@
-from SBTenv.defaults.treadmill import SIMULATION
-from SBTenv.defaults.wheel import TRIAL
-from SBTenv.models.wheel import Wheel
-from SBTenv.envs.sbt_env import SBTenv
-from SBTenv.tasks.sbwm_task import SBWMTask
+from sbtenv.defaults.treadmill import SIMULATION
+from sbtenv.defaults.wheel import TRIAL
+from sbtenv.models.wheel import Wheel
+from sbtenv.envs.sbt_env import SBTenv
+from sbtenv.tasks.sbwm_task import SBWMTask
 
 
 def _task_attr(name):

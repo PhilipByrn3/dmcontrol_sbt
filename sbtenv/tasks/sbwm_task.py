@@ -1,8 +1,8 @@
 import math
 
-from SBTenv.defaults.wheel import TRIAL
-from SBTenv.models.wheel import Wheel
-from SBTenv.tasks.sbt_task import SBTTask
+from sbtenv.defaults.wheel import TRIAL
+from sbtenv.models.wheel import Wheel
+from sbtenv.tasks.sbt_task import SBTTask
 
 
 class SBWMTask(SBTTask):

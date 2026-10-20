@@ -12,5 +12,5 @@ these defaults still reproduce the reference statistics.
 
 Every class takes these as its defaults; pass keyword arguments to override.
 """
-from SBTenv.defaults.treadmill import SIMULATION, TREADMILL
-from SBTenv.defaults.wheel import WHEEL, TRIAL
+from sbtenv.defaults.treadmill import SIMULATION, TREADMILL
+from sbtenv.defaults.wheel import WHEEL, TRIAL

@@ -1,6 +1,6 @@
-from SBTenv.utils.sbwm_simulation import SBWMSimulation
-from SBTenv.utils.data import load_experimental
-from SBTenv.utils import stats
+from sbtenv.utils.sbwm_simulation import SBWMSimulation
+from sbtenv.utils.data import load_experimental
+from sbtenv.utils import stats
 
 sim = SBWMSimulation()
 exp_bsd_array, exp_v = load_experimental()
