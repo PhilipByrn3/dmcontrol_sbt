@@ -17,6 +17,11 @@ def bias(simulation, experimental):
     return float(np.mean(simulation - experimental))
 
 
+def mae(simulation, experimental):
+    """Mean absolute error (m/s)."""
+    return float(np.mean(np.abs(simulation - experimental)))
+
+
 def r2(simulation, experimental):
     """Coefficient of determination of the simulation as a predictor of the experiment."""
     ss_res = np.sum((experimental - simulation) ** 2)
