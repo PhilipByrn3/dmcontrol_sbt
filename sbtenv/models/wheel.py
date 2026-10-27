@@ -16,15 +16,15 @@ class Wheel:
     :param axle_length: Half-length of the axle cylinder in meters. Default: 0.038.
     :param wheel_height: Z height of the axle body above the ground. Default: 0.38.
     :param spoke_length: Length of each spoke capsule in meters. Default: 0.254.
-    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 15.5.
-    :param twobeta: Angular offset of the fast-side spoke cluster in degrees. Default: 4.5.
-        Only twoalpha - twobeta matters: it is the angle between consecutive
-        fast->slow spokes, i.e. the slow belt collision angle 2-beta, and
-        angle_step minus it is the fast belt collision angle 2-alpha. The
-        defaults give 2-alpha = 29 deg and 2-beta = 11 deg (values from
-        config.yaml).
+    :param alpha: Half the angle between a fast spoke and the next slow spoke,
+        in degrees (Butterfield et al. 2022). Default: 15.5 (2*alpha = 31).
+    :param beta: Half the angle between a slow spoke and the next fast spoke,
+        in degrees. Default: 4.5 (2*beta = 9). The two spoke sets are offset
+        by 2*beta, and the spokes on each side are 2*(alpha + beta) apart,
+        which must divide 360.
+    :param wheel_angle: Initial rotation of the whole wheel about the axle in
+        degrees; the spoke sets sit at wheel_angle +/- beta. Default: 10.
     :param component_mass: Mass of each individual spoke geom in kg. Default: 0.095405.
-    :param angle_step: Angular spacing between spokes in degrees. Default: 40.
     :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [1, 1, 0.1].
     :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
     :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
@@ -45,10 +45,10 @@ class Wheel:
         'axle_length',
         'wheel_height',
         'spoke_length',
-        'twoalpha',
-        'twobeta',
+        'alpha',
+        'beta',
+        'wheel_angle',
         'component_mass',
-        'angle_step',
         'rubber_friction',
         'rubber_solimp',
         'rubber_solref',
@@ -62,6 +62,9 @@ class Wheel:
         invalid = set(kwargs) - self.VALID_KEYS
         if invalid:
             raise ValueError(f'Unknown params: {invalid}')
+        spacing = 2 * (kwargs.get('alpha', WHEEL['alpha']) + kwargs.get('beta', WHEEL['beta']))
+        if 360 % spacing:
+            raise ValueError(f'2*(alpha + beta) = {spacing} deg must divide 360')
 
         self.axle = Axle(worldbody, **kwargs)
         self.slow_spokes = SpokeSet(
@@ -73,7 +76,7 @@ class Wheel:
 class SpokeSet:
     """
     Builds one side of the wheel's spokes (slow: side=-1, fast: side=1).
-    Spokes are evenly distributed at angle_step increments around the axle.
+    Spokes are evenly distributed at 2*(alpha + beta) increments around the axle.
     Optionally adds a rubber tip with a spring-mass-damper (SMD) slide joint.
 
     :param axle_body: MuJoCo body to attach the spoke cluster to.
@@ -82,10 +85,10 @@ class SpokeSet:
     :param slow_rubber: Enable rubber tips on slow-side spokes. Default: True.
     :param axle_length: Half-length of the axle used to offset the cluster in meters. Default: 0.038.
     :param spoke_length: Length of each spoke capsule in meters. Default: 0.254.
-    :param twoalpha: Angular offset of the slow-side spoke cluster in degrees. Default: 15.5.
-    :param twobeta: Angular offset of the fast-side spoke cluster in degrees. Default: 4.5.
+    :param alpha: Half the fast->slow spoke angle in degrees. Default: 15.5.
+    :param beta: Half the slow->fast spoke angle in degrees. Default: 4.5.
+    :param wheel_angle: Initial rotation of the whole wheel in degrees. Default: 10.
     :param component_mass: Mass of each individual spoke geom in kg. Default: 0.095405.
-    :param angle_step: Angular spacing between spokes in degrees. Default: 40.
     :param rubber_friction: MuJoCo friction params [slide, spin, roll] for rubber tips. Default: [1, 1, 0.1].
     :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
     :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
@@ -100,10 +103,11 @@ class SpokeSet:
         slow_rubber = kwargs.get('slow_rubber', WHEEL['slow_rubber'])
         axle_length = kwargs.get('axle_length', WHEEL['axle_length'])
         spoke_length = kwargs.get('spoke_length', WHEEL['spoke_length'])
-        twoalpha = kwargs.get('twoalpha', WHEEL['twoalpha'])
-        twobeta = kwargs.get('twobeta', WHEEL['twobeta'])
+        alpha = kwargs.get('alpha', WHEEL['alpha'])
+        beta = kwargs.get('beta', WHEEL['beta'])
+        wheel_angle = kwargs.get('wheel_angle', WHEEL['wheel_angle'])
         component_mass = kwargs.get('component_mass', WHEEL['component_mass'])
-        angle_step = kwargs.get('angle_step', WHEEL['angle_step'])
+        angle_step = 2 * (alpha + beta)
         rubber_friction = kwargs.get('rubber_friction', WHEEL['rubber_friction'])
         rubber_solimp = kwargs.get('rubber_solimp', WHEEL['rubber_solimp'])
         rubber_solref = kwargs.get('rubber_solref', WHEEL['rubber_solref'])
@@ -113,7 +117,7 @@ class SpokeSet:
         smd_damping = kwargs.get('smd_damping', WHEEL['smd_damping'])
         
         side_name      = 'slow' if side < 0 else 'fast'
-        offset_angle = twoalpha if side_name == 'slow' else twobeta
+        offset_angle = wheel_angle + beta if side_name == 'slow' else wheel_angle - beta
         color = [0.7, 0, 0, 1] if side_name == 'slow' else [0, 0, 0.7, 1]
         rubber = slow_rubber if side_name == 'slow' else fast_rubber
 

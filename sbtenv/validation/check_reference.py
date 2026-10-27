@@ -14,10 +14,10 @@ from sbtenv.utils.data import load_experimental
 from sbtenv.utils import stats
 
 REFERENCE = {
-    'RMSE': 0.01391385495448577,
-    'Bias': -0.0038202663253913112,
-    'R2': 0.7374408430580734,
-    'Pearson': 0.9228722047286865,
+    'RMSE': 0.016232700199765363,
+    'Bias': 0.011670651046038025,
+    'R2': 0.6426335637004867,
+    'Pearson': 0.9424042766731092,
 }
 
 

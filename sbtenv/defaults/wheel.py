@@ -13,10 +13,10 @@ WHEEL = {
     'axle_length': 0.038,       # m, half-length
     'wheel_height': 0.38,       # m, initial axle height
     'spoke_length': 0.254,      # m
-    'twoalpha': 15.5,           # deg, slow-side spoke cluster offset
-    'twobeta': 4.5,             # deg, fast-side spoke cluster offset
+    'alpha': 15.5,              # deg, half the fast->slow spoke angle (2*alpha = 31)
+    'beta': 4.5,                # deg, half the slow->fast spoke angle (2*beta = 9)
+    'wheel_angle': 10.0,        # deg, initial rotation of the whole wheel
     'component_mass': 0.095405, # kg, per spoke / spoke addition / axle
-    'angle_step': 40,           # deg, spacing between spokes
     'rubber_friction': [1, 1, 0.1],
     'rubber_solimp': [0.8, 0.8, 0.01],
     'rubber_solref': [0.02, 1],
