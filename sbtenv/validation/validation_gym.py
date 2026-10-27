@@ -20,7 +20,8 @@ def run_trial(env, bsd):
 exp_bsd_array, exp_v = load_experimental()
 env = gym.make('sbtenv/RimlessWheel-v0')
 
-# Statistics: simulate at the experimental belt speed differences
+# Simulate at the experimental belt speed differences; the stats and the
+# figure both use exactly these points.
 v = np.array([run_trial(env, bsd) for bsd in exp_bsd_array])
 
 print('-= Stats =-')
@@ -29,13 +30,9 @@ print('Bias', stats.bias(v, exp_v))
 print('R2', stats.r2(v, exp_v))
 print('Pearson Correlation: ', stats.pearson_r(v, exp_v))
 
-# Figure: simulate an evenly spaced sweep and overlay the experiment
-sweep_bsd = np.arange(0.15, 1.10 + 0.025, 0.05)
-sweep_v = np.array([run_trial(env, bsd) for bsd in sweep_bsd])
-
 plt.rcParams['font.family'] = ['Arial', 'DejaVu Sans']
 fig, ax = plt.subplots(figsize=(7, 5))
-ax.scatter(sweep_bsd, sweep_v, s=22, color='blue', label='RW-env', zorder=3)
+ax.scatter(exp_bsd_array, v, s=22, color='blue', label='RW-env', zorder=3)
 ax.scatter(exp_bsd_array, exp_v, s=22, color='red', label='RW-exp', zorder=3)
 
 ax.set_title('Experimental and Simulated Rimless Wheel Walking\nVelocities on a Split-Belt Treadmill',

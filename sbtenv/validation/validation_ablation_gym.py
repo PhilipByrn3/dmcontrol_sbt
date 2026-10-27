@@ -1,14 +1,20 @@
 """
 Rubber contact x fast-belt offset ablation (writeup Section II-G, Table I, Fig. 3).
 
-Runs the BSD sweep (0.15 to 1.1 m/s in 0.05 m/s steps) for all eight
-combinations of rubber placement (none, fast spoke only, slow spoke only,
-both) and fast-belt z-offset (none, 4.9 mm). Each configuration is compared
-with the digitized experimental data by linearly interpolating its velocity
-curve at the experimental BSDs that fall inside the simulated range
-(Section II-H), giving R2, RMSE and MAE.
+Simulates every digitized experimental belt speed difference (BSD) for all
+eight combinations of rubber placement (none, fast spoke only, slow spoke
+only, both) and fast-belt z-offset (none, 4.9 mm). Each configuration is
+compared point by point with the experimental velocities at those same BSDs,
+giving R2, RMSE and MAE; the figure plots exactly those simulated points.
+Invalid trials (fewer than min_rotations) are left out of that
+configuration's statistics and figure.
+
+It also times every env.step() call and reports, per configuration, the
+average timestep time (the mean of each episode's average) and the total
+number of timesteps run.
 """
 import csv
+import time
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -25,29 +31,34 @@ RUBBER = {                      # row label: (fast_rubber, slow_rubber)
     'Both rubber': (True, True),
 }
 OFFSETS = {'No offset': 0.0, '4.9 mm offset': 0.0049}     # fast-belt z-offset (m)
-SWEEP_BSD = np.arange(0.15, 1.10 + 0.025, 0.05)
 
 
 def run_trial(env, bsd):
-    """Run one episode at belt speed difference bsd; return the average velocity (NaN if invalid)."""
+    """
+    Run one episode at belt speed difference bsd. Returns the average velocity
+    (NaN if invalid), the number of timesteps, and the average time per timestep (s).
+    """
     obs, info = env.reset(options={'slow_belt_speed': 0.0, 'fast_belt_speed': bsd})
+    steps, elapsed = 0, 0.0
     while True:
-        obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
+        action = env.action_space.sample()
+        start = time.perf_counter()
+        obs, reward, terminated, truncated, info = env.step(action)
+        elapsed += time.perf_counter() - start
+        steps += 1
         if terminated or truncated:
             break
-    return info['avg_velocity'] if info['valid'] else np.nan
+    velocity = info['avg_velocity'] if info['valid'] else np.nan
+    return velocity, steps, elapsed / steps
 
 
-def interpolated_stats(sim_bsd, sim_v, exp_bsd, exp_v):
-    """R2, RMSE and MAE of the sim curve interpolated at the experimental BSDs inside its range."""
+def paired_stats(sim_v, exp_v):
+    """R2, RMSE and MAE between simulated and experimental velocities at the same BSDs, skipping invalid trials."""
     ok = ~np.isnan(sim_v)
-    sim_bsd, sim_v = sim_bsd[ok], sim_v[ok]
-    inside = (exp_bsd >= sim_bsd.min()) & (exp_bsd <= sim_bsd.max())
-    predicted = np.interp(exp_bsd[inside], sim_bsd, sim_v)
-    return {'R2': stats.r2(predicted, exp_v[inside]),
-            'RMSE': stats.rmse(predicted, exp_v[inside]),
-            'MAE': stats.mae(predicted, exp_v[inside]),
-            'n': int(inside.sum())}
+    return {'R2': stats.r2(sim_v[ok], exp_v[ok]),
+            'RMSE': stats.rmse(sim_v[ok], exp_v[ok]),
+            'MAE': stats.mae(sim_v[ok], exp_v[ok]),
+            'n': int(ok.sum())}
 
 
 exp_bsd, exp_v = load_experimental()
@@ -59,8 +70,10 @@ for rubber, (fast_rubber, slow_rubber) in RUBBER.items():
         env = gym.make('sbtenv/RimlessWheel-v0',
                        wheel_kwargs={'fast_rubber': fast_rubber, 'slow_rubber': slow_rubber},
                        treadmill_kwargs={'fast_zoffset': fast_zoffset})
-        v = np.array([run_trial(env, bsd) for bsd in SWEEP_BSD])
-        results[rubber, offset] = {'v': v, **interpolated_stats(SWEEP_BSD, v, exp_bsd, exp_v)}
+        v, steps, step_time = map(np.array, zip(*(run_trial(env, bsd) for bsd in exp_bsd)))
+        results[rubber, offset] = {'v': v, **paired_stats(v, exp_v),
+                                   'avg_timestep_s': float(step_time.mean()),
+                                   'total_timesteps': int(steps.sum())}
         print(f'Finished: {rubber.lower()}, {offset.lower()}')
 
 # Stats table (Table I)
@@ -74,7 +87,16 @@ for offset in OFFSETS:
         name = f'{rubber}, {offset.lower()}'
         print(f'{name:34s} {r["R2"]:9.3f} {r["RMSE"]:11.4f} {r["MAE"]:10.4f} {invalid:8d}')
         rows.append({'configuration': name, 'R2': r['R2'], 'RMSE': r['RMSE'], 'MAE': r['MAE'],
-                     'experimental_points': r['n'], 'invalid_trials': invalid})
+                     'points_used': r['n'], 'invalid_trials': invalid,
+                     'avg_timestep_s': r['avg_timestep_s'], 'total_timesteps': r['total_timesteps']})
+
+# Timing
+print('\n-= Ablation Timing =-')
+for offset in OFFSETS:
+    for rubber in RUBBER:
+        r = results[rubber, offset]
+        print(f'{offset.capitalize()}, {rubber.lower()} configuration had an average timestep time of '
+              f'{r["avg_timestep_s"]:.3e} seconds for {r["total_timesteps"]} total timesteps')
 
 # Figure (Fig. 3): one row per rubber placement, one column per offset
 plt.rcParams['font.family'] = ['Arial', 'DejaVu Sans']
@@ -83,7 +105,7 @@ for i, rubber in enumerate(RUBBER):
     for j, offset in enumerate(OFFSETS):
         ax = axes[i, j]
         r = results[rubber, offset]
-        ax.scatter(SWEEP_BSD, r['v'], s=12, color='blue', label='RW-env', zorder=3)
+        ax.scatter(exp_bsd, r['v'], s=12, color='blue', label='RW-env', zorder=3)
         ax.scatter(exp_bsd, exp_v, s=12, color='red', label='RW-exp', zorder=3)
         ax.text(0.97, 0.95, f'$R^2$ = {r["R2"]:.3f}\nRMSE = {r["RMSE"]:.4f} m/s',
                 transform=ax.transAxes, ha='right', va='top', fontsize=8)
