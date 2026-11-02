@@ -21,6 +21,7 @@ WHEEL = {
     'rubber_solimp': [0.8, 0.8, 0.01],
     'rubber_solref': [0.02, 1],
     'rubber_size': [0.017],     # m, rubber tip radius
+    'rubber_mass': None,        # kg per rubber tip; None = MuJoCo default density (20.6 g)
     'smd_range': [0, 0.015],    # m, spring-mass-damper slide range
     'smd_stiffness': 50,        # N/m
     'smd_damping': 10,          # Ns/m

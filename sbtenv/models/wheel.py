@@ -29,6 +29,8 @@ class Wheel:
     :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
     :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
     :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.017].
+    :param rubber_mass: Mass of each rubber tip in kg. Default: None, which
+        lets MuJoCo use its default density (1000 kg/m^3, 20.6 g per tip).
     :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [0, 0.015].
     :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
     :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
@@ -53,6 +55,7 @@ class Wheel:
         'rubber_solimp',
         'rubber_solref',
         'rubber_size',
+        'rubber_mass',
         'smd_range',
         'smd_stiffness',
         'smd_damping'
@@ -93,6 +96,7 @@ class SpokeSet:
     :param rubber_solimp: Solver impedance params for rubber tip contact. Default: [0.8, 0.8, 0.01].
     :param rubber_solref: Solver reference params for rubber tip contact. Default: [0.02, 1].
     :param rubber_size: Radius of the rubber tip sphere in meters. Default: [0.017].
+    :param rubber_mass: Mass of each rubber tip in kg. Default: None (MuJoCo default density).
     :param smd_range: Slide joint range [min, max] for the spring-mass-damper. Default: [0, 0.015].
     :param smd_stiffness: Stiffness of the SMD slide joint in N/m. Default: 50.
     :param smd_damping: Damping of the SMD slide joint in Ns/m. Default: 10.
@@ -112,6 +116,7 @@ class SpokeSet:
         rubber_solimp = kwargs.get('rubber_solimp', WHEEL['rubber_solimp'])
         rubber_solref = kwargs.get('rubber_solref', WHEEL['rubber_solref'])
         rubber_size = kwargs.get('rubber_size', WHEEL['rubber_size'])
+        rubber_mass = kwargs.get('rubber_mass', WHEEL['rubber_mass'])
         smd_range = kwargs.get('smd_range', WHEEL['smd_range'])
         smd_stiffness = kwargs.get('smd_stiffness', WHEEL['smd_stiffness'])
         smd_damping = kwargs.get('smd_damping', WHEEL['smd_damping'])
@@ -155,6 +160,7 @@ class SpokeSet:
                     type='sphere',
                     size=rubber_size,
                     pos=[0, 0, spoke_length],
+                    mass=rubber_mass,
                     rgba=[0.1, 0.1, 0.1, 1],
                     friction=rubber_friction,
                     solimp=rubber_solimp,
