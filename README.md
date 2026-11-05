@@ -105,7 +105,7 @@ The rimless wheel is passive, so its action space is empty. `terminated` means t
 
 ```bash
 pip install -e ".[dev]"
-pytest
+python -m pytest -q
 ```
 
 ## License
