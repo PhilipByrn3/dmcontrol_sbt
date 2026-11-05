@@ -95,51 +95,6 @@ obs, info = env.reset(options={'slow_belt_speed': 0.0, 'fast_belt_speed': 0.8})
 
 The rimless wheel is passive, so its action space is empty. `terminated` means the wheel finished its rotations, `truncated` means time ran out, and the final step's `info` holds `avg_velocity`, `rotations`, `valid` and `steps`. Pass `render_mode='rgb_array'` to get frames from `env.render()`.
 
-## Put your own walker on the treadmill
-
-Subclass `SBTenv` to add your model, and `SBTTask` to define what an episode means. The treadmill, belt driving and time limit are already handled.
-
-```python
-from sbtenv.envs.sbt_env import SBTenv
-from sbtenv.tasks.sbt_task import SBTTask
-from sbtenv.models.wheel import Wheel
-
-class StayCentred(SBTTask):
-    def get_observation(self, physics):
-        return {'qpos': physics.data.qpos.copy(), 'qvel': physics.data.qvel.copy()}
-
-    def get_reward(self, physics):
-        return -abs(physics.named.data.qpos['axleYAxis'][0])   # stay near y = 0
-
-class MotorWheelEnv(SBTenv):
-    def _add_models(self):
-        Wheel(self._model.worldbody)
-        self._model.actuator.add('motor', joint='axleHinge', ctrlrange=[-1, 1], gear=[0.5])
-
-    def _make_task(self):
-        return StayCentred(time_limit=10)
-```
-
-Run it with dm_control:
-
-```python
-import numpy as np
-
-env = MotorWheelEnv()
-env.set_belt_speeds(0.0, 0.6)
-
-timestep = env.dm_env.reset()
-while not timestep.last():
-    timestep = env.dm_env.step(np.array([0.2]))
-```
-
-Or hand it to Gymnasium, which builds the action space from your actuators:
-
-```python
-env = gym.make('sbtenv/RimlessWheel-v0', env=MotorWheelEnv(), fast_belt_speed=0.6)
-print(env.action_space)   # Box(-1.0, 1.0, (1,), float64)
-```
-
 ## Conventions
 
 - Belt speeds are in m/s, applied to each belt as its velocity along +Y before every physics step.
